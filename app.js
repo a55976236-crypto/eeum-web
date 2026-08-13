@@ -485,11 +485,23 @@ async function renderRouteMap(route, containerId) {
     { lat: route.destination.lat, lng: route.destination.lng, cls: 'dest', icon: '🎯', label: esc(route.destination.name) },
   ];
 
+  // 좌표가 문자열이거나 잘못된 값이면 지도 전체가 깨지지 않도록 그 지점만 건너뜁니다.
+  const validPoints = [];
+  rawPoints.forEach((p) => {
+    const lat = Number(p.lat);
+    const lng = Number(p.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      console.warn(`[renderRouteMap] 잘못된 좌표라 건너뜀: ${p.cls}`, p);
+      return;
+    }
+    validPoints.push({ ...p, lat, lng });
+  });
+
   // 두 지점이 사실상 같은 좌표(마을을 직접 고른 경우의 현재위치=스팟,
   // 스팟과 환승거점이 같은 마을인 경우 등)면 핀이 서로 겹쳐 찍히므로
   // 좌표가 가까운 지점끼리는 핀 하나로 합쳐서 보여줍니다.
   const points = [];
-  rawPoints.forEach((p) => {
+  validPoints.forEach((p) => {
     const same = points.find((q) => Math.abs(q.lat - p.lat) < 0.0005 && Math.abs(q.lng - p.lng) < 0.0005);
     if (same) {
       same.label += ` · ${p.label}`;
@@ -505,7 +517,9 @@ async function renderRouteMap(route, containerId) {
   mapInstances[containerId] = map;
 
   const bounds = new kakao.maps.LatLngBounds();
+  const debugPins = new URLSearchParams(location.search).get('debugpins') === '1';
 
+  // Polyline과 핀은 반드시 동일한 points 배열(같은 lat/lng)을 사용합니다.
   points.forEach((p) => {
     const pos = new kakao.maps.LatLng(p.lat, p.lng);
     bounds.extend(pos);
@@ -513,14 +527,30 @@ async function renderRouteMap(route, containerId) {
     // 이름표를 띄우지 않고, 동선 위에 고정된 아이콘 핀만 찍습니다.
     // (지점이 가까우면 이름표끼리 부딪히는 문제가 있었고, 이름은 위
     //  요약 카드에 이미 순서대로 적혀 있어서 지도는 위치·순서만 보여주면 됩니다)
-    const content = el(`<div class="route-pin ${p.cls}"><span>${p.icon}</span></div>`);
+    // 핀은 원(circle) + 삼각형(tail)을 세로로 쌓은 비-회전 구조라,
+    // yAnchor:1이 가리키는 '콘텐츠 맨 아래'가 곧 삼각형의 뾰족한 끝 = 좌표입니다.
+    const content = el(`
+      <div class="route-pin ${p.cls}">
+        <div class="route-pin-circle"><span>${p.icon}</span></div>
+        <div class="route-pin-tail ${p.cls}"></div>
+      </div>`);
 
     new kakao.maps.CustomOverlay({
       position: pos,
       content,
+      xAnchor: 0.5,
       yAnchor: 1,
       zIndex: p.cls === 'dest' ? 3 : 2,
     }).setMap(map);
+
+    // ?debugpins=1 로 접속하면 실제 좌표에 작은 점을 찍어 핀 끝과 맞는지 눈으로 확인할 수 있습니다.
+    if (debugPins) {
+      new kakao.maps.Circle({
+        center: pos, radius: 2,
+        strokeWeight: 1, strokeColor: '#ff0000', strokeOpacity: 1,
+        fillColor: '#ff0000', fillOpacity: 1,
+      }).setMap(map);
+    }
   });
 
   new kakao.maps.Polyline({
@@ -538,7 +568,7 @@ async function renderRouteMap(route, containerId) {
   //  "확대할 때마다 핀이 움직인다"처럼 보였습니다)
   requestAnimationFrame(() => {
     map.relayout();
-    map.setBounds(bounds, 32, 32, 32, 32);
+    map.setBounds(bounds, 64, 64, 64, 64);
   });
 }
 
