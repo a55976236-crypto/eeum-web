@@ -531,10 +531,15 @@ async function renderRouteMap(route, containerId) {
     strokeStyle: 'shortdash',
   }).setMap(map);
 
-  map.setBounds(bounds, 32, 32, 32, 32);
-
-  // 카드가 막 DOM에 붙은 직후라 컨테이너 크기가 0일 수 있어 한 번 더 갱신
-  setTimeout(() => { map.relayout(); map.setBounds(bounds, 32, 32, 32, 32); }, 80);
+  // 카드가 막 DOM에 나타난 직후라 컨테이너 크기가 아직 0일 수 있어,
+  // 레이아웃이 실제로 자리 잡은 다음 프레임에 딱 한 번만 맞춥니다.
+  // (예전엔 즉시 한 번 + 80ms 뒤 또 한 번, 총 두 번 맞췄는데
+  //  그 사이에 사용자가 확대·축소하면 두 번째 보정이 그걸 덮어써서
+  //  "확대할 때마다 핀이 움직인다"처럼 보였습니다)
+  requestAnimationFrame(() => {
+    map.relayout();
+    map.setBounds(bounds, 32, 32, 32, 32);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────

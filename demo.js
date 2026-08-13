@@ -364,8 +364,12 @@ async function initDemoMap(route) {
     strokeWeight: 5, strokeColor: DEMO_LEG_COLORS.bus, strokeOpacity: .9, strokeStyle: 'solid',
   }).setMap(demoMap);
 
-  demoMap.setBounds(bounds, 40, 40, 40, 40);
-  setTimeout(() => { demoMap.relayout(); demoMap.setBounds(bounds, 40, 40, 40, 40); }, 80);
+  // 레이아웃이 실제로 자리 잡은 다음 프레임에 딱 한 번만 크기를 맞춥니다.
+  // (즉시+80ms 뒤 이중 보정이 사용자의 확대·축소를 덮어쓰는 문제가 있었습니다)
+  requestAnimationFrame(() => {
+    demoMap.relayout();
+    demoMap.setBounds(bounds, 40, 40, 40, 40);
+  });
 }
 
 /** 지도 위를 이동하는 마커 — 사람 아이콘 대신 마스코트가 여정을 함께합니다. */
