@@ -9,6 +9,8 @@
 <title>이음 (EEUM) — 마을에서 도시까지, 끊기지 않는 길</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐋</text></svg>">
+<!-- 지도: Leaflet + OSM 타일. API 키 불필요. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
 <div class="app" id="app">
@@ -124,7 +126,10 @@
 
 </div>
 
-<!-- 순서 중요: config → data → geo → route → drt → ai → voice → app -->
+<!-- 지도: 로딩 실패해도(오프라인 등) app.js가 typeof L 체크로 안전하게 폴백합니다 -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- 순서 중요: leaflet → config → data → geo → route → drt → ai → voice → app -->
 <script src="js/config.js"></script>
 <script src="js/data.js"></script>
 <script src="js/geo.js"></script>
