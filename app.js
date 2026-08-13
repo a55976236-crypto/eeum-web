@@ -510,11 +510,10 @@ async function renderRouteMap(route, containerId) {
     const pos = new kakao.maps.LatLng(p.lat, p.lng);
     bounds.extend(pos);
 
-    const content = el(`
-      <div class="route-pin-wrap">
-        <div class="route-pin-label">${p.label}</div>
-        <div class="route-pin ${p.cls}"><span>${p.icon}</span></div>
-      </div>`);
+    // 이름표를 띄우지 않고, 동선 위에 고정된 아이콘 핀만 찍습니다.
+    // (지점이 가까우면 이름표끼리 부딪히는 문제가 있었고, 이름은 위
+    //  요약 카드에 이미 순서대로 적혀 있어서 지도는 위치·순서만 보여주면 됩니다)
+    const content = el(`<div class="route-pin ${p.cls}"><span>${p.icon}</span></div>`);
 
     new kakao.maps.CustomOverlay({
       position: pos,
