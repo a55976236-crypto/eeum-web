@@ -9,8 +9,6 @@
 <title>이음 (EEUM) — 마을에서 도시까지, 끊기지 않는 길</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐋</text></svg>">
-<!-- 지도: Leaflet + OSM 타일. API 키 불필요. -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
 <div class="app" id="app">
@@ -126,10 +124,16 @@
 
 </div>
 
-<!-- 지도: 로딩 실패해도(오프라인 등) app.js가 typeof L 체크로 안전하게 폴백합니다 -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!--
+  지도: 카카오맵 JavaScript API.
+  ⚠️ 앱 키는 카카오 디벨로퍼스 콘솔에서 이 사이트의 실제 도메인이
+  플랫폼(Web)에 등록되어 있어야 동작합니다. file:// 에서는 동작하지 않습니다.
+  autoload=false 로 받고 app.js가 준비될 때 kakao.maps.load()로 초기화합니다
+  (로딩 실패해도 app.js가 typeof kakao 체크로 안전하게 폴백합니다).
+-->
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=871b187aa14ea8cb5629b0c1afa82120&autoload=false"></script>
 
-<!-- 순서 중요: leaflet → config → data → geo → route → drt → ai → voice → app -->
+<!-- 순서 중요: kakao maps → config → data → geo → route → drt → ai → voice → app -->
 <script src="js/config.js"></script>
 <script src="js/data.js"></script>
 <script src="js/geo.js"></script>

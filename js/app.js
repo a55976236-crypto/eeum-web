@@ -279,7 +279,7 @@ function renderRoute(route) {
         <span class="tag tag-logic">일반 로직</span>
       </h2>
       <div class="map-box" id="route-map"></div>
-      <div class="map-note">직선 경로로 표시했습니다 (실제 도로 경로 아님) · 지도: OpenStreetMap</div>
+      <div class="map-note">직선 경로로 표시했습니다 (실제 도로 경로 아님) · 지도: 카카오맵</div>
     </div>`));
   setTimeout(() => renderRouteMap(route, 'route-map'), 0);
 
@@ -356,26 +356,46 @@ async function fillDelayExplanation(route) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 지도 (Leaflet + OpenStreetMap — API 키 불필요)
+// 지도 (카카오맵 JavaScript API)
 // ★ 일반 로직입니다. 좌표를 직선으로 잇기만 할 뿐, AI가 관여하지 않습니다.
+// index.html에서 autoload=false로 SDK를 받아오므로, 실제 지도 객체를 쓰기
+// 전에 kakao.maps.load()로 한 번 초기화를 마쳐야 합니다(최초 1회만).
 // ─────────────────────────────────────────────────────────────
 
 const mapInstances = {};
+let kakaoMapsReady = null;
 
-function renderRouteMap(route, containerId) {
+function waitForKakaoMaps() {
+  if (kakaoMapsReady) return kakaoMapsReady;
+  kakaoMapsReady = new Promise((resolve, reject) => {
+    if (typeof kakao === 'undefined' || !kakao.maps) {
+      reject(new Error('kakao maps SDK 로딩 실패'));
+      return;
+    }
+    kakao.maps.load(resolve);
+  });
+  return kakaoMapsReady;
+}
+
+async function renderRouteMap(route, containerId) {
   const box = $(containerId);
   if (!box) return;
 
-  if (mapInstances[containerId]) {
-    try { mapInstances[containerId].remove(); } catch (_) { /* 이미 정리됨 */ }
-    delete mapInstances[containerId];
-  }
+  delete mapInstances[containerId];
 
-  // Leaflet 로딩 실패(오프라인 등)에도 나머지 화면은 그대로 동작해야 합니다.
-  if (typeof L === 'undefined') {
+  // SDK 로딩 실패(오프라인, 도메인 미등록 등)에도 나머지 화면은 그대로 동작해야 합니다.
+  try {
+    await waitForKakaoMaps();
+  } catch (_) {
     box.innerHTML = '<div class="map-fallback">지도를 불러오지 못했습니다.<br>네트워크 연결을 확인해주세요.</div>';
     return;
   }
+
+  // await 동안 사용자가 다른 경로를 다시 조회했을 수 있으니, 지금 그릴 대상이
+  // 맞는지 한 번 더 확인합니다.
+  if (state.route !== route) return;
+
+  box.innerHTML = '';
 
   const points = [
     { lat: route.origin.lat, lng: route.origin.lng, cls: 'origin', icon: '🧍', label: '현재 위치' },
@@ -384,33 +404,44 @@ function renderRouteMap(route, containerId) {
     { lat: route.destination.lat, lng: route.destination.lng, cls: 'dest', icon: '🎯', label: esc(route.destination.name) },
   ];
 
-  const map = L.map(box, { zoomControl: false, attributionControl: true });
-  L.control.zoom({ position: 'bottomright' }).addTo(map);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18,
-    attribution: '&copy; OpenStreetMap contributors',
-  }).addTo(map);
-
-  points.forEach((p) => {
-    const icon = L.divIcon({
-      className: '',
-      html: `<div class="route-pin ${p.cls}"><span>${p.icon}</span></div>`,
-      iconSize: [30, 30],
-      iconAnchor: [15, 30],
-      popupAnchor: [0, -30],
-    });
-    L.marker([p.lat, p.lng], { icon }).bindPopup(p.label).addTo(map);
+  const map = new kakao.maps.Map(box, {
+    center: new kakao.maps.LatLng(points[1].lat, points[1].lng),
+    level: 7,
   });
-
-  L.polyline(points.map((p) => [p.lat, p.lng]), {
-    color: '#0e8f8f', weight: 3, opacity: .8, dashArray: '2 8',
-  }).addTo(map);
-
-  map.fitBounds(L.latLngBounds(points.map((p) => [p.lat, p.lng])), { padding: [28, 28] });
   mapInstances[containerId] = map;
 
+  const bounds = new kakao.maps.LatLngBounds();
+
+  points.forEach((p) => {
+    const pos = new kakao.maps.LatLng(p.lat, p.lng);
+    bounds.extend(pos);
+
+    const content = el(`
+      <div class="route-pin-wrap">
+        <div class="route-pin ${p.cls}"><span>${p.icon}</span></div>
+        <div class="route-pin-label">${p.label}</div>
+      </div>`);
+
+    new kakao.maps.CustomOverlay({
+      position: pos,
+      content,
+      yAnchor: 1,
+      zIndex: p.cls === 'dest' ? 3 : 2,
+    }).setMap(map);
+  });
+
+  new kakao.maps.Polyline({
+    path: points.map((p) => new kakao.maps.LatLng(p.lat, p.lng)),
+    strokeWeight: 3,
+    strokeColor: '#0e8f8f',
+    strokeOpacity: .8,
+    strokeStyle: 'shortdash',
+  }).setMap(map);
+
+  map.setBounds(bounds, 32, 32, 32, 32);
+
   // 카드가 막 DOM에 붙은 직후라 컨테이너 크기가 0일 수 있어 한 번 더 갱신
-  setTimeout(() => map.invalidateSize(), 80);
+  setTimeout(() => { map.relayout(); map.setBounds(bounds, 32, 32, 32, 32); }, 80);
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -659,8 +659,13 @@ body { padding-bottom: env(safe-area-inset-bottom); }
   margin-top: 8px;
 }
 
-/* Leaflet 팝업이 앱 폰트를 따르도록 */
-.leaflet-popup-content { font-family: inherit; font-size: .84em; }
+.route-pin-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transform: translateY(-100%);
+}
 .route-pin {
   display: flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
@@ -673,3 +678,14 @@ body { padding-bottom: env(safe-area-inset-bottom); }
 .route-pin.spot,
 .route-pin.hub    { background: var(--teal); }
 .route-pin.dest   { background: var(--danger); }
+
+.route-pin-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  background: #fff;
+  padding: 2px 8px;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+}
