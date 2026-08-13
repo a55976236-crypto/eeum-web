@@ -271,6 +271,18 @@ function renderRoute(route) {
       </div>
     </div>`));
 
+  // ── 지도 ──
+  box.appendChild(el(`
+    <div class="card">
+      <h2 class="card-title">
+        <span>🗺️ 지도로 보기</span>
+        <span class="tag tag-logic">일반 로직</span>
+      </h2>
+      <div class="map-box" id="route-map"></div>
+      <div class="map-note">직선 경로로 표시했습니다 (실제 도로 경로 아님) · 지도: OpenStreetMap</div>
+    </div>`));
+  setTimeout(() => renderRouteMap(route, 'route-map'), 0);
+
   // ── 타임라인 ──
   const card = el(`
     <div class="card">
@@ -344,6 +356,64 @@ async function fillDelayExplanation(route) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 지도 (Leaflet + OpenStreetMap — API 키 불필요)
+// ★ 일반 로직입니다. 좌표를 직선으로 잇기만 할 뿐, AI가 관여하지 않습니다.
+// ─────────────────────────────────────────────────────────────
+
+const mapInstances = {};
+
+function renderRouteMap(route, containerId) {
+  const box = $(containerId);
+  if (!box) return;
+
+  if (mapInstances[containerId]) {
+    try { mapInstances[containerId].remove(); } catch (_) { /* 이미 정리됨 */ }
+    delete mapInstances[containerId];
+  }
+
+  // Leaflet 로딩 실패(오프라인 등)에도 나머지 화면은 그대로 동작해야 합니다.
+  if (typeof L === 'undefined') {
+    box.innerHTML = '<div class="map-fallback">지도를 불러오지 못했습니다.<br>네트워크 연결을 확인해주세요.</div>';
+    return;
+  }
+
+  const points = [
+    { lat: route.origin.lat, lng: route.origin.lng, cls: 'origin', icon: '🧍', label: '현재 위치' },
+    { lat: route.spot.lat, lng: route.spot.lng, cls: 'spot', icon: '🐋', label: esc(route.spot.name) },
+    { lat: route.hub.lat, lng: route.hub.lng, cls: 'hub', icon: '🔄', label: esc(route.hub.name) },
+    { lat: route.destination.lat, lng: route.destination.lng, cls: 'dest', icon: '🎯', label: esc(route.destination.name) },
+  ];
+
+  const map = L.map(box, { zoomControl: false, attributionControl: true });
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; OpenStreetMap contributors',
+  }).addTo(map);
+
+  points.forEach((p) => {
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="route-pin ${p.cls}"><span>${p.icon}</span></div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 30],
+      popupAnchor: [0, -30],
+    });
+    L.marker([p.lat, p.lng], { icon }).bindPopup(p.label).addTo(map);
+  });
+
+  L.polyline(points.map((p) => [p.lat, p.lng]), {
+    color: '#0e8f8f', weight: 3, opacity: .8, dashArray: '2 8',
+  }).addTo(map);
+
+  map.fitBounds(L.latLngBounds(points.map((p) => [p.lat, p.lng])), { padding: [28, 28] });
+  mapInstances[containerId] = map;
+
+  // 카드가 막 DOM에 붙은 직후라 컨테이너 크기가 0일 수 있어 한 번 더 갱신
+  setTimeout(() => map.invalidateSize(), 80);
+}
+
+// ─────────────────────────────────────────────────────────────
 // DRT 호출
 // ─────────────────────────────────────────────────────────────
 
@@ -378,7 +448,15 @@ function renderDrtPanel() {
         <p class="muted" style="margin:0 0 12px">
           <b>${esc(route.spot.name)}</b>에서 <b>${esc(route.hub.name)}</b>까지 마실고래버스를 부릅니다.
         </p>
-        <button class="btn btn-teal" id="btn-call">🐋 마실고래버스 부르기</button>
+        <div class="btn-row" id="call-mode-row">
+          <button class="btn btn-teal" id="call-mode-now" type="button">🐋 지금 바로</button>
+          <button class="btn btn-ghost" id="call-mode-later" type="button">📅 예약 호출</button>
+        </div>
+        <div class="field hidden" id="call-time-field">
+          <label class="label" for="sel-call-time">몇 시에 타실 건가요?</label>
+          <select class="select" id="sel-call-time"></select>
+        </div>
+        <button class="btn btn-primary" id="btn-call" style="margin-top:10px">🐋 마실고래버스 부르기</button>
         <div class="notice notice-info" style="margin-top:10px">
           <span class="notice-icon">ℹ️</span>
           <div>
@@ -389,9 +467,38 @@ function renderDrtPanel() {
         </div>
       </div>`));
 
+    // ── 지금 호출 / 예약 호출 전환 ──
+    // 지금부터 10분 단위로, 90분 뒤까지 예약 슬롯을 만듭니다.
+    const slotBase = new Date();
+    slotBase.setSeconds(0, 0);
+    slotBase.setMinutes(Math.ceil(slotBase.getMinutes() / 10) * 10);
+
+    const timeSelect = $('sel-call-time');
+    for (let i = 1; i <= 9; i++) {
+      const t = new Date(slotBase.getTime() + i * 10 * 60000);
+      timeSelect.appendChild(el(`<option value="${i}">${formatTime(t)}</option>`));
+    }
+
+    let isScheduled = false;
+    const nowBtn = $('call-mode-now');
+    const laterBtn = $('call-mode-later');
+    const timeField = $('call-time-field');
+
+    function setCallMode(scheduled) {
+      isScheduled = scheduled;
+      nowBtn.className = `btn ${scheduled ? 'btn-ghost' : 'btn-teal'}`;
+      laterBtn.className = `btn ${scheduled ? 'btn-teal' : 'btn-ghost'}`;
+      timeField.classList.toggle('hidden', !scheduled);
+    }
+    nowBtn.addEventListener('click', () => setCallMode(false));
+    laterBtn.addEventListener('click', () => setCallMode(true));
+
     $('btn-call').addEventListener('click', () => {
       const leg = route.legs.find((l) => l.kind === 'drt');
-      c.requestCall(route.spot, route.destination, leg?.dispatchMin || 8);
+      const scheduledAt = isScheduled
+        ? new Date(slotBase.getTime() + Number(timeSelect.value) * 10 * 60000)
+        : null;
+      c.requestCall(route.spot, route.destination, leg?.dispatchMin || 8, scheduledAt);
       if (state.mode === 'easy') speak('마실고래버스를 부르고 있습니다. 잠시만 기다려 주세요.');
     });
     return;
@@ -406,6 +513,14 @@ function renderDrtPanel() {
       ${c.isActive ? '<span class="pulse"></span>' : '<span>✅</span>'}
       <span>${esc(label)}</span>
     </div>`));
+
+  if (c.state === DRT_STATES.SCHEDULED) {
+    panel.appendChild(el(`
+      <div class="notice notice-info" style="margin-top:10px">
+        <span class="notice-icon">📅</span>
+        <div><b>${formatTime(c.scheduledAt)}</b>에 마실고래버스가 배차됩니다. ${esc(c.spot.name)}에서 그 시각에 맞춰 나와주세요.</div>
+      </div>`));
+  }
 
   if (c.state === DRT_STATES.REQUESTING) {
     panel.appendChild(el(`

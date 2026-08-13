@@ -630,3 +630,46 @@ body { padding-bottom: env(safe-area-inset-bottom); }
     transition-duration: .01ms !important;
   }
 }
+
+/* ── 지도 (Leaflet) ──────────────────────────────── */
+
+.map-box {
+  height: 220px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--sky);
+}
+.easy .map-box { height: 260px; }
+
+.map-fallback {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-3);
+  font-size: .85em;
+  text-align: center;
+  padding: 0 16px;
+}
+
+.map-note {
+  font-size: .74em;
+  color: var(--ink-3);
+  margin-top: 8px;
+}
+
+/* Leaflet 팝업이 앱 폰트를 따르도록 */
+.leaflet-popup-content { font-family: inherit; font-size: .84em; }
+.route-pin {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: var(--shadow);
+  border: 2px solid #fff;
+}
+.route-pin span { transform: rotate(45deg); font-size: 15px; }
+.route-pin.origin { background: var(--navy); }
+.route-pin.spot,
+.route-pin.hub    { background: var(--teal); }
+.route-pin.dest   { background: var(--danger); }

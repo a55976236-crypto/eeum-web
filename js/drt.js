@@ -13,16 +13,18 @@
 
 const DRT_STATES = {
   IDLE: 'idle',
-  REQUESTING: 'requesting', // 호출 요청 전송 중
-  MATCHED: 'matched',       // 차량 배정 완료
-  ARRIVING: 'arriving',     // 스팟으로 이동 중
-  ARRIVED: 'arrived',       // 스팟 도착, 탑승 대기
-  ONBOARD: 'onboard',       // 탑승 완료
-  DONE: 'done',             // 하차
+  SCHEDULED: 'scheduled',    // 예약 접수 완료, 예약 시각을 기다리는 중
+  REQUESTING: 'requesting',  // 호출 요청 전송 중
+  MATCHED: 'matched',        // 차량 배정 완료
+  ARRIVING: 'arriving',      // 스팟으로 이동 중
+  ARRIVED: 'arrived',        // 스팟 도착, 탑승 대기
+  ONBOARD: 'onboard',        // 탑승 완료
+  DONE: 'done',              // 하차
 };
 
 const DRT_STATE_LABEL = {
   idle: '대기',
+  scheduled: '예약 접수 완료',
   requesting: '호출 요청 중',
   matched: '배차 완료',
   arriving: '스팟으로 이동 중',
@@ -30,6 +32,9 @@ const DRT_STATE_LABEL = {
   onboard: '탑승 중',
   done: '하차 완료',
 };
+
+/** 발표 시간을 고려해 1분을 4초로 압축합니다. 실제 서비스에서는 60000으로 두면 됩니다. */
+const DEMO_TICK_MS = 4000;
 
 /** 시연용 차량 풀 */
 const DRT_VEHICLES = [
@@ -55,6 +60,7 @@ class DrtCall {
     this.etaMin = null;
     this.callId = null;
     this.requestedAt = null;
+    this.scheduledAt = null;
     this._timers = [];
     this._clearTimers();
   }
@@ -96,18 +102,34 @@ class DrtCall {
 
   /**
    * 호출을 시작합니다.
-   * @param {object} spot        승차할 DRT 스팟
-   * @param {object} destination 목적지
-   * @param {number} dispatchMin 예상 배차 시간(분) — route.js에서 계산한 값
+   * @param {object} spot          승차할 DRT 스팟
+   * @param {object} destination   목적지
+   * @param {number} dispatchMin   예상 배차 시간(분) — route.js에서 계산한 값
+   * @param {Date}   [scheduledAt] 예약 시각. 없으면 즉시 호출.
    */
-  requestCall(spot, destination, dispatchMin = 8) {
+  requestCall(spot, destination, dispatchMin = 8, scheduledAt = null) {
     this._clearTimers();
 
     this.spot = spot;
     this.destination = destination;
+    this.scheduledAt = scheduledAt;
     this.callId = 'EEUM-' + Date.now().toString(36).toUpperCase().slice(-6);
     this.requestedAt = new Date();
 
+    if (scheduledAt) {
+      this._set(DRT_STATES.SCHEDULED);
+
+      // ── 실제 서비스에서는 예약 시각에 운영사 배차 시스템이 매칭을 시작합니다 ──
+      //    지금은 그 시점까지의 대기를 데모 시간에 맞춰 압축해 재현합니다.
+      this._later(() => this._startDispatch(dispatchMin), DEMO_TICK_MS * 2);
+      return;
+    }
+
+    this._startDispatch(dispatchMin);
+  }
+
+  /** 배차 요청 → 차량 배정 → 이동 중, 흐름을 시간 순서대로 재현합니다. */
+  _startDispatch(dispatchMin) {
     this._set(DRT_STATES.REQUESTING);
 
     // ── 실제 서비스에서는 이 자리에서 운영사 배차 API를 호출합니다 ──
@@ -134,8 +156,6 @@ class DrtCall {
    * 실제 서비스에서는 60000으로 두면 됩니다.
    */
   _startEtaCountdown() {
-    const DEMO_TICK_MS = 4000; // ← 실서비스: 60000
-
     const tick = () => {
       if (this.state !== DRT_STATES.ARRIVING) return;
 

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이음(EEUM) — 발표자료</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0B3C5D;
+    --teal:#0E7C7B;
+    --teal-deep:#0A5C5B;
+    --sky:#3AA6B9;
+    --accent:#FF7A45;
+    --ink:#16232B;
+    --sub:#5B6B73;
+    --line:#DCE4E6;
+    --bg-soft:#F4F7F7;
+    --card:#FFFFFF;
+    --danger:#D9534F;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{
+    width:100%; height:100%;
+    background:#20303A;
+    font-family:"Noto Sans KR", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    color:var(--ink);
+    overflow:hidden;
+  }
+  #stage{
+    position:absolute; top:0; left:0;
+    width:1280px; height:720px;
+    transform-origin: top left;
+  }
+  .slide{
+    position:absolute; top:0; left:0;
+    width:1280px; height:720px;
+    background:var(--card);
+    display:none;
+    flex-direction:column;
+    padding:56px 72px 66px 72px;
+  }
+  .slide.active{ display:flex; }
+  .eyebrow{
+    display:flex; align-items:center; gap:10px;
+    font-size:14px; font-weight:700; color:var(--teal-deep);
+    letter-spacing:.06em; text-transform:uppercase; margin-bottom:10px;
+  }
+  .eyebrow .dot{width:8px;height:8px;border-radius:2px;background:var(--accent);}
+  h1.title{
+    font-size:34px; font-weight:900; color:var(--navy); line-height:1.3;
+    border-bottom:4px solid var(--navy); padding-bottom:18px; margin-bottom:26px;
+  }
+  .content{ flex:1; min-height:0; }
+  .footer{
+    display:flex; justify-content:space-between; align-items:center;
+    border-top:1px solid var(--line); padding-top:14px; margin-top:14px;
+    font-size:12px; color:var(--sub);
+  }
+  .brandmark{ font-weight:900; color:var(--teal-deep); letter-spacing:.03em; }
+
+  /* ---------- Slide 1 : Cover ---------- */
+  .cover{ justify-content:center; align-items:center; position:relative; background:linear-gradient(160deg,#0B3C5D 0%, #0E7C7B 100%); }
+  .cover .top-bar{ position:absolute; top:0; left:0; right:0; height:10px; background:var(--accent); }
+  .cover-inner{ text-align:center; color:#fff; }
+  .cover-icons{ display:flex; justify-content:center; gap:64px; margin-bottom:36px; opacity:.85; }
+  .cover-icons span{ font-size:30px; }
+  .cover-logo{ font-size:76px; font-weight:900; letter-spacing:.02em; margin-bottom:6px; }
+  .cover-logo small{ display:block; font-size:20px; font-weight:500; letter-spacing:.35em; color:#BFEAE6; margin-top:8px;}
+  .cover-tagline{ font-size:22px; font-weight:700; margin-top:22px; }
+  .cover-sub{ margin-top:14px; font-size:15px; color:#D8ECEA; }
+  .cover-divider{ width:120px; height:2px; background:#ffffff55; margin:28px auto; }
+  .cover-footer{ position:absolute; bottom:34px; font-size:13px; color:#BFEAE6; letter-spacing:.05em;}
+
+  /* ---------- Slide 2 : 문제 제기 ---------- */
+  .prob-grid{ display:grid; grid-template-columns:1.05fr .95fr; gap:40px; height:100%; }
+  .stat-card{ background:var(--bg-soft); border-radius:10px; padding:20px 22px; margin-bottom:14px; border-left:5px solid var(--teal); }
+  .stat-card .label{ font-weight:700; color:var(--navy); font-size:15px; margin-bottom:6px; }
+  .stat-card .desc{ font-size:13.5px; color:var(--sub); line-height:1.55; }
+  .stat-card.warn{ border-left-color:var(--accent); background:#FFF3EC; }
+  .bubbles{ display:flex; flex-direction:column; gap:16px; justify-content:center; height:100%; }
+  .bubble{ background:var(--bg-soft); border-radius:16px; padding:16px 20px; font-size:15px; font-weight:600; color:var(--ink); box-shadow:0 2px 6px rgba(0,0,0,.06); position:relative;}
+  .bubble.b1{ align-self:flex-start; margin-left:0; }
+  .bubble.b2{ align-self:center; }
+  .bubble.b3{ align-self:flex-end; }
+  .prob-banner{ margin-top:22px; text-align:center; font-size:17px; font-weight:700; color:var(--navy); background:var(--bg-soft); border-radius:10px; padding:16px; }
+
+  /* ---------- Slide 3 : 솔루션 ---------- */
+  .persona-wrap{ position:relative; height:100%; display:grid; grid-template-columns:1fr 260px 1fr; grid-template-rows:1fr 1fr; gap:20px; align-items:center; }
+  .persona-card{ background:var(--bg-soft); border-radius:10px; padding:16px 18px; }
+  .persona-card .p-title{ font-weight:800; color:var(--teal-deep); font-size:15px; margin-bottom:6px; }
+  .persona-card .p-desc{ font-size:13px; color:var(--sub); line-height:1.5; }
+  .persona-center{
+    grid-row: 1 / 3; grid-column:2;
+    width:260px; height:260px; border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, var(--sky), var(--navy));
+    color:#fff; display:flex; align-items:center; justify-content:center; text-align:center;
+    font-weight:800; font-size:15.5px; padding:26px; line-height:1.5;
+    box-shadow:0 10px 30px rgba(11,60,93,.35);
+  }
+
+  /* ---------- Slide 4 : 선순환 ---------- */
+  .flywheel-wrap{ position:relative; height:100%; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px;}
+  .fw-col{ display:flex; flex-direction:column; gap:70px; }
+  .fw-col.right{ align-items:flex-end; text-align:right; }
+  .fw-item{ background:var(--bg-soft); border-radius:14px; padding:16px 18px; font-size:13.5px; font-weight:600; color:var(--ink); max-width:260px; line-height:1.5; }
+  .fw-center{ display:flex; flex-direction:column; align-items:center; gap:0; }
+  .fw-circle{ width:170px; height:170px; border-radius:50%; display:flex; align-items:center; justify-content:center; text-align:center; color:#fff; font-weight:800; font-size:16px; padding:14px; box-shadow:0 8px 22px rgba(0,0,0,.18); }
+  .fw-circle.a{ background:var(--navy); margin-bottom:-26px; z-index:2;}
+  .fw-circle.b{ background:var(--teal); margin-top:-26px; z-index:1;}
+  .fw-loop{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:210px; height:210px; border:3px dashed #C8DBDB; border-radius:50%; z-index:0;}
+  .flywheel-banner{ text-align:center; font-size:16px; font-weight:700; color:var(--navy); margin-top:18px; }
+
+  /* ---------- Slide 5 : 핵심기능 ---------- */
+  .feat-grid{ display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(2,1fr); gap:18px; height:100%; }
+  .feat-card{ border:1px solid var(--line); border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:8px; }
+  .feat-head{ display:inline-flex; align-items:center; gap:8px; background:var(--navy); color:#fff; font-weight:700; font-size:13.5px; padding:8px 12px; border-radius:8px; align-self:flex-start;}
+  .feat-icon{ font-size:26px; margin-top:2px; }
+  .feat-desc{ font-size:13px; color:var(--sub); line-height:1.55; }
+  .feat-tag{ margin-top:auto; align-self:flex-start; font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; }
+  .tag-rule{ background:#E7EEF2; color:var(--navy); }
+  .tag-ai{ background:#FFEADD; color:#C1521F; }
+
+  /* ---------- Slide 6 : AI 파이프라인 ---------- */
+  .pipe-wrap{ display:flex; align-items:stretch; gap:0; height:100%; }
+  .pipe-step{ flex:1; display:flex; flex-direction:column; }
+  .pipe-bar{ height:8px; background:var(--sky); }
+  .pipe-step:nth-child(1) .pipe-bar{ background:#C7D8DC; }
+  .pipe-step:nth-child(2) .pipe-bar{ background:var(--sky); }
+  .pipe-step:nth-child(3) .pipe-bar{ background:var(--teal-deep); }
+  .pipe-step:nth-child(4) .pipe-bar{ background:var(--accent); }
+  .pipe-body{ flex:1; padding:22px 18px; display:flex; flex-direction:column; gap:10px; }
+  .pipe-icon{ font-size:30px; }
+  .pipe-title{ font-weight:800; font-size:16px; color:var(--navy); }
+  .pipe-desc{ font-size:13px; color:var(--sub); line-height:1.55; }
+  .pipe-quote{ margin-top:auto; font-size:12.5px; background:var(--bg-soft); border-radius:8px; padding:10px 12px; color:var(--ink); font-weight:600; line-height:1.5;}
+  .pipe-sep{ width:1px; background:var(--line); }
+
+  /* ---------- Slide 7 : UI 목업 ---------- */
+  .ui-wrap{ display:grid; grid-template-columns:1fr 1.15fr 1fr; gap:28px; height:100%; align-items:center;}
+  .ui-side{ font-size:14px; color:var(--sub); line-height:1.7; }
+  .ui-side .h{ font-weight:800; color:var(--navy); font-size:16px; margin-bottom:8px; }
+  .phone{ background:#1C2B33; border-radius:34px; padding:14px; box-shadow:0 20px 40px rgba(0,0,0,.25); }
+  .phone-screen{ background:#fff; border-radius:22px; padding:18px 16px; }
+  .ph-search{ background:var(--bg-soft); border-radius:10px; padding:10px 12px; font-size:12.5px; color:var(--sub); margin-bottom:8px; display:flex; justify-content:space-between;}
+  .ph-timeline{ margin-top:14px; display:flex; flex-direction:column; gap:0; }
+  .ph-row{ display:flex; gap:10px; align-items:flex-start; padding:9px 0; border-left:2px solid var(--line); margin-left:9px; padding-left:16px; position:relative;}
+  .ph-row::before{ content:""; position:absolute; left:-7px; top:12px; width:12px; height:12px; border-radius:50%; background:var(--teal); border:2px solid #fff; }
+  .ph-row.now::before{ background:var(--accent); }
+  .ph-label{ font-size:12.5px; font-weight:700; color:var(--ink); }
+  .ph-sub{ font-size:11px; color:var(--sub); margin-top:2px; }
+  .ph-badge{ font-size:10px; font-weight:700; background:var(--navy); color:#fff; padding:2px 7px; border-radius:20px; align-self:flex-start; margin-left:auto;}
+  .note-flag{ margin-top:14px; font-size:11.5px; color:var(--sub); background:var(--bg-soft); border-radius:8px; padding:8px 10px; }
+
+  /* ---------- Slide 8 : 시나리오 ---------- */
+  .story-wrap{ display:grid; grid-template-columns:280px 1fr; gap:40px; height:100%; }
+  .persona-photo{ width:110px; height:110px; border-radius:50%; background:linear-gradient(160deg,var(--sky),var(--navy)); display:flex; align-items:center; justify-content:center; font-size:44px; margin-bottom:16px;}
+  .persona-name{ display:inline-block; background:var(--navy); color:#fff; font-weight:800; font-size:15px; padding:7px 14px; border-radius:8px; margin-bottom:14px;}
+  .persona-facts{ background:var(--bg-soft); border-radius:10px; padding:14px 16px; font-size:12.5px; color:var(--ink); line-height:1.9; }
+  .timeline-title{ font-weight:800; color:var(--navy); font-size:15px; margin-bottom:14px; }
+  .tl{ position:relative; padding-left:26px; }
+  .tl::before{ content:""; position:absolute; left:9px; top:6px; bottom:6px; width:3px; background:var(--line); border-radius:3px;}
+  .tl-step{ position:relative; padding-bottom:26px; }
+  .tl-step:last-child{ padding-bottom:0; }
+  .tl-dot{ position:absolute; left:-26px; top:2px; width:20px; height:20px; border-radius:50%; background:var(--teal); color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; }
+  .tl-step.now .tl-dot{ background:var(--accent); }
+  .tl-h{ font-weight:800; font-size:14.5px; color:var(--ink); }
+  .tl-d{ font-size:12.5px; color:var(--sub); margin-top:3px; }
+  .story-quote{ margin-top:18px; text-align:right; font-weight:800; color:var(--teal-deep); font-size:15px; }
+
+  /* ---------- Slide 9 : 비교표 ---------- */
+  table.cmp{ width:100%; border-collapse:collapse; margin-top:4px; }
+  table.cmp th, table.cmp td{ border:1px solid var(--line); padding:14px 16px; font-size:13px; vertical-align:top; line-height:1.55; }
+  table.cmp thead th{ background:var(--bg-soft); color:var(--navy); font-weight:800; text-align:left; font-size:13.5px;}
+  table.cmp thead th.eeum-head{ background:var(--navy); color:#fff; }
+  table.cmp tbody th{ background:var(--bg-soft); color:var(--navy); font-weight:700; text-align:left; width:16%;}
+  table.cmp tbody td.eeum-cell{ background:#EAF6F5; font-weight:700; color:var(--teal-deep); }
+
+  /* ---------- Slide 10 : 확장 비전 ---------- */
+  .vision-wrap{ display:flex; gap:0; height:100%; align-items:stretch;}
+  .vision-col{ flex:1; min-width:0; display:flex; flex-direction:column; padding:22px 20px; }
+  .vision-col .vh{ display:inline-flex; align-items:center; gap:8px; font-weight:800; font-size:15px; color:#fff; background:var(--navy); padding:8px 12px; border-radius:8px; margin-bottom:16px; align-self:flex-start;}
+  .vision-col:nth-child(2) .vh{ background:var(--teal-deep); }
+  .vision-col:nth-child(3) .vh{ background:var(--accent); }
+  .vision-item{ background:var(--bg-soft); border-radius:10px; padding:12px 14px; font-size:12.5px; color:var(--ink); line-height:1.6; margin-bottom:10px; }
+  .arrow-sep{ flex:0 0 36px; display:flex; align-items:center; justify-content:center; font-size:26px; color:var(--line); }
+  .vision-banner{ text-align:center; font-size:16px; font-weight:700; color:var(--navy); margin-top:10px; background:var(--bg-soft); padding:14px; border-radius:10px;}
+
+  /* ---------- Nav ---------- */
+  #nav{ position:absolute; bottom:14px; left:50%; transform:translateX(-50%); display:flex; gap:10px; align-items:center; z-index:50; background:#ffffffe8; padding:6px 12px; border-radius:26px; box-shadow:0 4px 14px rgba(0,0,0,.18);}
+  #nav button{ border:none; background:var(--navy); color:#fff; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:14px; }
+  #nav button:disabled{ opacity:.3; cursor:default; }
+  #nav .count{ font-size:13px; font-weight:700; color:var(--navy); min-width:52px; text-align:center;}
+  #dots{ display:flex; gap:6px; }
+  #dots span{ width:7px; height:7px; border-radius:50%; background:#C8D3D6; cursor:pointer; }
+  #dots span.on{ background:var(--accent); width:18px; border-radius:4px; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+  <!-- 1. 표지 -->
+  <section class="slide active">
+    <div class="cover" style="margin:-56px -72px -44px -72px; padding:56px 72px; width:1280px; height:720px;">
+      <div class="top-bar"></div>
+      <div class="cover-inner">
+        <div class="cover-icons">
+          <span>🚌</span><span>📍</span><span>🗣️</span><span>♿</span><span>🗺️</span>
+        </div>
+        <div class="cover-logo">이음<small>E&nbsp;E&nbsp;U&nbsp;M</small></div>
+        <div class="cover-divider"></div>
+        <div class="cover-tagline">울산마실고래버스와 대중교통을, 하나의 경로로 잇다</div>
+        <div class="cover-sub">출발지와 도착지만 입력하면 완성되는 통합 이동 내비게이션</div>
+      </div>
+      <div class="cover-footer">U1 교통·대중교통 개선 · 2026 AI 해커톤</div>
+    </div>
+  </section>
+
+  <!-- 2. 문제 제기 -->
+  <section class="slide">
+    <div class="eyebrow"><span class="dot"></span>PROBLEM</div>
+    <h1 class="title">울산의 교통 격차, 그리고 흩어진 서비스의 맹점</h1>
+    <div class="content prob-grid">
+      <div>
+        <div class="stat-card">
+          <div class="label">남구·북구 — 촘촘한 노선</div>
+          <div class="desc">남구는 인구밀도 1위(㎢당 약 4,143명), 북구는 산업·택지 개발로 빠르게 성장 중이라 두 지역 모두 버스 노선이 비교적 촘촘하게 깔려 있습니다.</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="label">울주군 — 넓고, 성기고, 험한 지형</div>
+          <div class="desc">면적은 울산 전체의 71%(서울보다 넓음)에 달하지만 인구밀도는 ㎢당 288명, 남구의 15분의 1 수준입니다. 영남알프스 산악지대라 권역 간 직통 노선도 부족합니다.</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">이미 있지만, 잘 모르는 서비스</div>
+          <div class="desc">울산시는 이 격차를 메우려 DRT(수요응답형 교통) '울산마실고래버스'를 운영 중이지만, 전용 앱으로만 호출 가능해 인지도가 여전히 낮습니다.</div>
+        </div>
+      </div>
+      <div class="bubbles">
+        <div class="bubble b1">척과·반용에서 울산대까지<br>대체 어떻게 가야 하지? 🤔</div>
+        <div class="bubble b2">마실고래버스는 처음인데<br>어떻게 부르는 거예요?</div>
+        <div class="bubble b3">환승할 버스가 언제 오는지<br>지도 앱엔 안 나와요.</div>
+      </div>
+    </div>
+    <div class="prob-banner">기존 지도 앱과 마실고래버스 전용 앱은 서로 따로 존재하고, 그 사이는 사용자가 직접 머릿속으로 이어야 합니다.</div>
+  </section>
+
+  <!-- 3. 솔루션 소개 -->
+  <section class="slide">
+    <div class="eyebrow"><span class="dot"></span>SOLUTION</div>
+    <h1 class="title">출발지와 도착지를 잇는 내비게이션, 이음</h1>
+    <div class="content persona-wrap">
+      <div class="persona-card" style="grid-row:1; grid-column:1;">
+        <div class="p-title">마실고래버스 서비스 구역 거주자</div>
+        <div class="p-desc">척과·반용 등 서비스 구역 안에 살지만 구역 밖(도심)으로 나가는 전체 경로는 알기 어려운 사람</div>
+      </div>
+      <div class="persona-card" style="grid-row:1; grid-column:3;">
+        <div class="p-title">고령자·교통약자</div>
+        <div class="p-desc">스마트폰 조작이 서툴고, 직원이나 낯선 사람에게 반복해서 묻는 것이 부담스러운 사람</div>
+      </div>
+      <div class="persona-center">
+        출발지·도착지만 입력하면<br>마실고래버스 호출부터<br>버스 환승까지<br>하나의 경로로 자동 연결합니다
+      </div>
+      <div class="persona-card" style="grid-row:2; grid-column:1;">
+        <div class="p-title">울산대학교 통학·통근자</div>
+        <div class="p-desc">사각지대(울주군)에서 도심(남구)으로 매일 반복해서 이동해야 하는 사람</div>
+      </div>
+      <div class="persona-card" style="grid-row:2; grid-column:3;">
+        <div class="p-title">처음 방문하는 외지인</div>
+        <div class="p-desc">마실고래버스라는 서비스가 존재한다는 사실 자체를 모르는 사람</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. 기대효과 선순환 -->
+  <section class="slide">
+    <div class="eyebrow"><span class="dot"></span>IMPACT</div>
+    <h1 class="title">이용 편의가 서비스 인지도로 이어지는 선순환</h1>
+    <div class="content" style="display:flex; flex-direction:column; height:100%;">
+      <div class="flywheel-wrap" style="flex:1;">
+        <div class="fw-col">
+          <div class="fw-item">출발지·도착지만 입력하면 마실고래버스 호출부터 환승까지 전체 경로를 한 번에 확인</div>
+          <div class="fw-item">지연 이유까지 자연어로 설명받아 막연한 대기 불안 감소</div>
+        </div>
+        <div class="fw-center">
+          <div class="fw-loop"></div>
+          <div class="fw-circle a">이용자<br>경험 향상</div>
+          <div class="fw-circle b">마실고래버스<br>이용 활성화</div>
+        </div>
+        <div class="fw-col right">
+          <div class="fw-item">몰랐던 시민의 첫 이용 경험 유입 증가로 이어짐</div>
+          <div class="fw-item">울산시 DRT 시범사업의 이용률·인지도 지표가 함께 개선</div>
+        </div>
+      </div>
+      <div class="flywheel-banner">이음은 이용자의 이동 경험과 마실고래버스 시범사업의 성과를 함께 끌어올립니다.</div>
+    </div>
+  </section>
+
+  <!-- 5. 핵심기능 6가지 -->
+  <section class="slide">
+    <div class="eyebrow"><span class="dot"></span>KEY FEATURES</div>
+    <h1 class="title">이음을 구성하는 6가지 핵심 기능</h1>
+    <div class="content feat-grid">
+      <div class="feat-card">
+        <div class="feat-icon">📍</div>
+        <div class="feat-head">마실고래버스 스팟 추천</div>
+        <div class="feat-desc">현재 위치와 가장 가까운 호출 스팟, 예상 도착시간·지연 여부를 안내합니다.</div>
+        <span class="feat-tag tag-rule">일반 로직</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">⏱️</div>
+        <div class="feat-head">실제 대기시간 계산</div>
+        <div class="feat-desc">도보시간과 버스 도착시간을 비교해, 체감이 아닌 실제 대기시간을 산출합니다.</div>
+        <span class="feat-tag tag-rule">일반 로직</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🔄</div>
+        <div class="feat-head">환승 정류장·노선 안내</div>
+        <div class="feat-desc">서비스 구역 경계의 환승 정류장과 탑승 가능한 버스 노선·도착시간을 안내합니다.</div>
+        <span class="feat-tag tag-rule">일반 로직</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🧠</div>
+        <div class="feat-head">AI 지연원인 설명</div>
+        <div class="feat-desc">배차·구간 데이터를 종합해 "왜" 지연되는지 상황별 이유를 자연어로 해석합니다.</div>
+        <span class="feat-tag tag-ai">AI 적용</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">💬</div>
+        <div class="feat-head">쉬운모드 대화형 인터페이스</div>
+        <div class="feat-desc">"지금 집에서 병원 가고 싶어요" 같은 자유 발화를 이해하고 대화로 경로를 완결합니다.</div>
+        <span class="feat-tag tag-ai">AI 적용</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🛰️</div>
+        <div class="feat-head">울산 BIS 실시간 연동</div>
+        <div class="feat-desc">울산광역시 버스정보시스템(BIS)과 연동해 실시간 배차·도착 정보를 반영합니다.</div>
+        <span class="feat-tag tag-rule">일반 로직</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. AI 파이프라인 -->
+  <section class="slide">
+    <div class="eyebrow"><span class="dot"></span>AI PIPELINE</div>
+    <h1 class="title">AI 지연원인 설명 파이프라인</h1>
+    <div class="content pipe-wrap">
+      <div class="pipe-step">
+        <div class="pipe-bar"></div>
+        <div class="pipe-body">
+          <div class="pipe-icon">🚌</div>
+          <div class="pipe-title">배차·구간 데이터 수집</div>
+          <div class="pipe-desc">마실고래버스 실시간 배차 정보와 구간별 소요시간을 수집합니다.</div>
+          <div class="pipe-quote">혁신도시 인근 구간 배차 지연 감지</div>
+        </div>
+      </div>
+      <div class="pipe-sep"></div>
+      <div class="pipe-step">
+        <div class="pipe-bar"></div>
+        <div class="pipe-body">
+          <div class="pipe-icon">🗂️</div>
+          <div class="pipe-title">핵심 값 JSON 구조화</div>
+          <div class="pipe-desc">원본 데이터 전체가 아닌 요약된 핵심 값만 정리해 토큰 낭비를 줄입니다.</div>
+          <div class="pipe-quote">{구간: 혁신도시}, {지연: +5분}, {원인후보: 배차집중}</div>
+        </div>
+      </div>
+      <div class="pipe-sep"></div>
+      <div class="pipe-step">
+        <div class="pipe-bar"></div>
+        <div class="pipe-body">
+          <div class="pipe-icon">🔒</div>
+          <div class="pipe-title">OpenAI API 프롬프트 전달</div>
+          <div class="pipe-desc">구조화된 데이터와 프롬프트를 함께 전달해 상황에 맞는 해석을 생성합니다.</div>
+          <div class="pipe-quote">구조화 출력(JSON) + 해석 생성 패턴</div>
+        </div>
+      </div>
+      <div class="pipe-sep"></div>
+      <div class="pipe-step">
+        <div class="pipe-bar"></div>
+        <div class="pipe-body">
+          <div class="pipe-icon">✅</div>
+          <div class="pipe-title">근거 기반 자연어 설명</div>
+          <div class="pipe-desc">숫자만 보여주지 않고, 상황마다 달라지는 지연 이유를 문장으로 설명합니다.</div>
+          <div class="pipe-quote">"혁신도시 인근에 배차가 몰려 있어 평소보다 5분가량 늦어질 가능성이 있습니다."</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. UI/UX -->
+  <section class="slide">
+    <div class="eyebrow"><span class="dot"></span>UI / UX</div>
+    <h1 class="title">한눈에 보이는 경로 안내 화면</h1>
+    <div class="content ui-wrap">
+      <div class="ui-side">
+        <div class="h">복잡한 환승을<br>하나의 타임라인으로</div>
+        출발지·도착지 입력 한 번으로 마실고래버스 호출부터 환승 버스, 최종 목적지까지의 전체 여정을 한 화면의 타임라인으로 보여줍니다.
+        <div class="note-flag">* 개념 목업이며, 실제 화면은 개발 진행에 따라 확정 예정입니다.</div>
+      </div>
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="ph-search">📍 출발지: 척과리 정류장 <span>→</span> 🏁 도착지: 울산대학교</div>
+          <div class="ph-timeline">
+            <div class="ph-row"><div><div class="ph-label">🚶 도보 4분</div><div class="ph-sub">척과리 정류장까지 이동</div></div></div>
+            <div class="ph-row now"><div><div class="ph-label">🚌 마실고래버스 호출 · 대기 1분</div><div class="ph-sub">지연 없음 · 혁신도시행</div></div><div class="ph-badge">현재</div></div>
+            <div class="ph-row"><div><div class="ph-label">🔄 혁신도시 환승 정류장 하차</div><div class="ph-sub">401번 환승 버스 6분 후 도착</div></div></div>
+            <div class="ph-row"><div><div class="ph-label">🏫 울산대학교 도착</div><div class="ph-sub">총 소요시간 약 46분</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="ui-side">
+        <div class="h">쉬운모드에서는<br>같은 정보를 대화형으로</div>
+        화면을 직접 조작하는 대신 "지금 집에서 학교 가고 싶어요"라고 말하면, AI가 되묻고 답을 들으며 동일한 여정을 대화로 완결합니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. 시나리오 -->
+  <section class="slide">
+    <div class="eyebrow"><span class="dot"></span>SCENARIO</div>
+    <h1 class="title">사용자의 실제 하루 속 '이음'</h1>
+    <div class="content story-wrap">
+      <div>
+        <div class="persona-photo">👵</div>
+        <div class="persona-name">박순자 (68세)</div>
+        <div class="persona-facts">
+          · 울주군 척과리 거주<br>
+          · 울산대학교병원 정기 진료<br>
+          · 마실고래버스 첫 이용<br>
+          · 스마트폰 조작 서툼 → 쉬운모드 사용<br>
+          · 자녀 없이 혼자 이동
+        </div>
+      </div>
+      <div>
+        <div class="timeline-title">오늘의 여정</div>
+        <div class="tl">
+          <div class="tl-step"><div class="tl-dot">1</div><div class="tl-h">쉬운모드로 "병원 가고 싶어요" 대화 시작</div><div class="tl-d">AI가 목적지와 현재 위치를 되물어 확인</div></div>
+          <div class="tl-step now"><div class="tl-dot">2</div><div class="tl-h">가장 가까운 마실고래버스 스팟 안내 · 도보 4분</div><div class="tl-d">지연 없음, 예상 대기 1분</div></div>
+          <div class="tl-step"><div class="tl-dot">3</div><div class="tl-h">혁신도시 환승 정류장에서 401번 버스로 환승</div><div class="tl-d">환승 버스 도착까지 6분, AI가 지연 사유까지 설명</div></div>
+          <div class="tl-step"><div class="tl-dot">4</div><div class="tl-h">울산대학교병원 도착</div><div class="tl-d">총 이동시간 약 46분, 중간에 직원에게 묻지 않고 완료</div></div>
+        </div>
+        <div class="story-quote">이제, 이음을 실행합니다. #이음</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. 비교표 -->
+  <section class="slide">
+    <div class="eyebrow"><span class="dot"></span>COMPARISON</div>
+    <h1 class="title">기존 서비스와의 차별점</h1>
+    <div class="content">
+      <table class="cmp">
+        <thead>
+          <tr><th></th><th>울산마실고래 전용 앱</th><th>네이버지도 · 카카오맵</th><th class="eeum-head">이음</th></tr>
+        </thead>
+        <tbody>
+          <tr><th>연결 범위</th><td>마실고래버스 호출만 가능</td><td>일반 버스·도보 경로만 안내, 마실고래버스 연동 없음</td><td class="eeum-cell">마실고래버스 + 일반 버스를 하나의 경로로 통합 안내</td></tr>
+          <tr><th>검색 경험</th><td>정해진 호출 스팟 선택 필요</td><td>출발지·도착지 입력만으로 안내되지만 DRT는 미지원</td><td class="eeum-cell">출발지·도착지 입력만으로 전체 여정 자동 연결</td></tr>
+          <tr><th>지연 정보</th><td>배차 예정시간 숫자만 표시</td><td>거의 제공되지 않음</td><td class="eeum-cell">AI가 지연 원인을 근거와 함께 자연어로 설명</td></tr>
+          <tr><th>접근성</th><td>스마트폰 조작에 능숙해야 이용 가능</td><td>동일</td><td class="eeum-cell">쉬운모드로 대화만으로도 전 과정 이용 가능</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 10. 확장 비전 -->
+  <section class="slide">
+    <div class="eyebrow"><span class="dot"></span>VISION</div>
+    <h1 class="title">이음, 안내를 넘어 교통 사각지대 해소 인프라로</h1>
+    <div class="content" style="display:flex; flex-direction:column; height:100%;">
+      <div class="vision-wrap" style="flex:1;">
+        <div class="vision-col">
+          <div class="vh">인천 I-mod 교훈</div>
+          <div class="vision-item">도착 예상시간을 부풀리지 않고 지연 가능성·사유를 투명하게 안내한다는 원칙을 설계에 이미 반영</div>
+          <div class="vision-item">수요 편중으로 사각지대가 오히려 소외되지 않는지 지속 확인</div>
+        </div>
+        <div class="arrow-sep">→</div>
+        <div class="vision-col">
+          <div class="vh">데이터화</div>
+          <div class="vision-item">이용 경로, 대기시간, 지연 설명 이력이 서비스 이용 데이터로 축적</div>
+          <div class="vision-item">쉬운모드 대화 로그에서 실제 이용자 불편 지점 파악 가능</div>
+        </div>
+        <div class="arrow-sep">→</div>
+        <div class="vision-col">
+          <div class="vh">확장 방향</div>
+          <div class="vision-item">도로 상황(공사·사고)을 반영한 대체 환승 경로 추천으로 확장</div>
+          <div class="vision-item">타 지자체의 DRT 시범사업으로도 이어붙일 수 있는 안내 인프라</div>
+        </div>
+      </div>
+      <div class="vision-banner">이음은 마실고래버스 같은 DRT 시범사업이 늘어날수록 함께 확장 가능한 안내 인프라입니다.</div>
+    </div>
+  </section>
+
+  <div id="nav">
+    <button id="prevBtn">‹</button>
+    <div id="dots"></div>
+    <button id="nextBtn">›</button>
+  </div>
+
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const dotsWrap = document.getElementById('dots');
+  let idx = 0;
+
+  slides.forEach((s,i)=>{
+    const d = document.createElement('span');
+    d.addEventListener('click',()=>go(i));
+    dotsWrap.appendChild(d);
+  });
+  const dots = dotsWrap.querySelectorAll('span');
+
+  function render(){
+    slides.forEach((s,i)=> s.classList.toggle('active', i===idx));
+    dots.forEach((d,i)=> d.classList.toggle('on', i===idx));
+    document.getElementById('prevBtn').disabled = idx===0;
+    document.getElementById('nextBtn').disabled = idx===slides.length-1;
+  }
+  function go(i){
+    idx = Math.max(0, Math.min(slides.length-1, i));
+    render();
+  }
+  document.getElementById('prevBtn').addEventListener('click', ()=>go(idx-1));
+  document.getElementById('nextBtn').addEventListener('click', ()=>go(idx+1));
+  window.addEventListener('keydown', (e)=>{
+    if(e.key==='ArrowRight' || e.key===' ') go(idx+1);
+    if(e.key==='ArrowLeft') go(idx-1);
+  });
+
+  function scaleStage(){
+    const stage = document.getElementById('stage');
+    const scale = Math.min(window.innerWidth/1280, window.innerHeight/720);
+    stage.style.transform = 'translate(' + ((window.innerWidth-1280*scale)/2) + 'px,' + ((window.innerHeight-720*scale)/2) + 'px) scale(' + scale + ')';
+  }
+  window.addEventListener('resize', scaleStage);
+  scaleStage();
+  render();
+</script>
+</body>
+</html>
