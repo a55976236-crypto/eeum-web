@@ -17,6 +17,11 @@ const state = {
   mode: 'normal',      // 'normal' | 'easy'
   chatHistory: [],
   busy: false,
+  // 탑승 이후 자동으로 이어지는 여정 단계.
+  // idle | riding_drt | hub_arrived | bus_waiting | bus_arrived | riding_bus | done
+  journeyPhase: 'idle',
+  journeyRideRemaining: null,
+  journeyBusWaitRemaining: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -303,6 +308,7 @@ function updateRouteButton() {
 async function handleFindRoute() {
   if (!state.position || !state.destination) return;
 
+  resetJourney(); // 새로 찾는 경로에 이전 호출·여정 상태가 남아있지 않도록
   state.route = buildRoute(state.position, state.destination, state.chosenSpot);
   renderRoute(state.route);
   goNormalStep(1); // 스크롤 대신 결과 화면으로 전환
@@ -518,32 +524,39 @@ async function renderRouteMap(route, containerId) {
 
   const bounds = new kakao.maps.LatLngBounds();
   const debugPins = new URLSearchParams(location.search).get('debugpins') === '1';
+  const PIN_COLOR = { origin: '#0b2b45', spot: '#0e8f8f', hub: '#0e8f8f', dest: '#dc2626' };
 
   // Polyline과 핀은 반드시 동일한 points 배열(같은 lat/lng)을 사용합니다.
+  //
+  // ★ CustomOverlay(DOM+CSS)로 핀을 그리던 방식은 회전·박스모델 때문에
+  //   여러 번 어긋났습니다. CSS 앵커 계산을 아예 신뢰하지 않기로 하고,
+  //   카카오맵이 직접 픽셀 단위로 앵커를 보장하는 네이티브 Marker +
+  //   MarkerImage(SVG, 중심점 offset)로 바꿨습니다. 원의 중심이 곧 앵커라
+  //   레이아웃/회전에 따라 어긋날 여지 자체가 없습니다.
   points.forEach((p) => {
     const pos = new kakao.maps.LatLng(p.lat, p.lng);
     bounds.extend(pos);
 
-    // 이름표를 띄우지 않고, 동선 위에 고정된 아이콘 핀만 찍습니다.
-    // (지점이 가까우면 이름표끼리 부딪히는 문제가 있었고, 이름은 위
-    //  요약 카드에 이미 순서대로 적혀 있어서 지도는 위치·순서만 보여주면 됩니다)
-    // 핀은 원(circle) + 삼각형(tail)을 세로로 쌓은 비-회전 구조라,
-    // yAnchor:1이 가리키는 '콘텐츠 맨 아래'가 곧 삼각형의 뾰족한 끝 = 좌표입니다.
-    const content = el(`
-      <div class="route-pin ${p.cls}">
-        <div class="route-pin-circle"><span>${p.icon}</span></div>
-        <div class="route-pin-tail ${p.cls}"></div>
-      </div>`);
+    const size = 28;
+    const half = size / 2;
+    const color = PIN_COLOR[p.cls] || '#0e8f8f';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">`
+      + `<circle cx="${half}" cy="${half}" r="${half - 2}" fill="${color}" stroke="#fff" stroke-width="2.5"/>`
+      + `<text x="${half}" y="${half + 5}" font-size="14" text-anchor="middle">${p.icon}</text>`
+      + `</svg>`;
+    const image = new kakao.maps.MarkerImage(
+      'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg),
+      new kakao.maps.Size(size, size),
+      { offset: new kakao.maps.Point(half, half) },
+    );
 
-    new kakao.maps.CustomOverlay({
+    new kakao.maps.Marker({
       position: pos,
-      content,
-      xAnchor: 0.5,
-      yAnchor: 1,
+      image,
       zIndex: p.cls === 'dest' ? 3 : 2,
     }).setMap(map);
 
-    // ?debugpins=1 로 접속하면 실제 좌표에 작은 점을 찍어 핀 끝과 맞는지 눈으로 확인할 수 있습니다.
+    // ?debugpins=1 로 접속하면 실제 좌표에 작은 점을 찍어 핀 중심과 맞는지 눈으로 확인할 수 있습니다.
     if (debugPins) {
       new kakao.maps.Circle({
         center: pos, radius: 2,
@@ -573,6 +586,67 @@ async function renderRouteMap(route, containerId) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 여정 — DRT 호출부터 환승 버스까지, 지도 위에서 실시간으로 이어 보여줍니다.
+// (데모 탭과 같은 방식이며, buildRoute()가 만든 실제 경로 아무거나에 적용됩니다)
+// ─────────────────────────────────────────────────────────────
+
+let journeyVehicleMarker = null;
+let journeyCancelTicker = null;
+let journeyArrivingTotal = null;
+
+/** 지금 활성화된 화면(일반모드/쉬운모드)의 지도 컨테이너 id */
+function currentMapContainerId() {
+  return state.mode === 'easy' ? 'easy-route-map' : 'route-map';
+}
+
+/** route.legs에서 여정에 필요한 숫자들을 뽑아냅니다. 계산은 전부 route.js가 이미 해둔 값입니다. */
+function getJourneyMetrics(route) {
+  const drtLeg = route.legs.find((l) => l.kind === 'drt');
+  const transferLeg = route.legs.find((l) => l.kind === 'transfer');
+  const busLeg = route.legs.find((l) => l.kind === 'bus');
+  return {
+    dispatchMin: drtLeg?.dispatchMin ?? 8,
+    drtRideMin: drtLeg?.rideMin ?? 5,
+    busRoute: transferLeg?.busRoute ?? '',
+    busWaitMin: transferLeg?.minutes ?? route.delay.actual,
+    busRideMin: busLeg?.minutes ?? 10,
+  };
+}
+
+/** 지도 위를 이동하는 마스코트 마커 — 네이티브 Marker + 이미지라 앵커가 어긋나지 않습니다. */
+function setJourneyVehicle(pos) {
+  const map = mapInstances[currentMapContainerId()];
+  if (!map) return;
+  const latlng = new kakao.maps.LatLng(pos.lat, pos.lng);
+  if (!journeyVehicleMarker) {
+    const size = 40;
+    const image = new kakao.maps.MarkerImage(
+      MASCOT_SRC,
+      new kakao.maps.Size(size, size),
+      { offset: new kakao.maps.Point(size / 2, size / 2) },
+    );
+    journeyVehicleMarker = new kakao.maps.Marker({ position: latlng, image, zIndex: 5 });
+  }
+  journeyVehicleMarker.setMap(map); // 모드 전환 등으로 지도 인스턴스가 바뀌었을 수 있어 매번 다시 붙입니다
+  journeyVehicleMarker.setPosition(latlng);
+}
+
+function clearJourneyVehicle() {
+  if (journeyVehicleMarker) journeyVehicleMarker.setMap(null);
+}
+
+/** 여정 상태를 완전히 초기화합니다 (새 경로를 검색하거나 대화를 리셋할 때). */
+function resetJourney() {
+  if (journeyCancelTicker) { journeyCancelTicker(); journeyCancelTicker = null; }
+  state.journeyPhase = 'idle';
+  state.journeyRideRemaining = null;
+  state.journeyBusWaitRemaining = null;
+  journeyArrivingTotal = null;
+  clearJourneyVehicle();
+  drtCall.cancel();
+}
+
+// ─────────────────────────────────────────────────────────────
 // DRT 호출
 // ─────────────────────────────────────────────────────────────
 
@@ -599,8 +673,30 @@ function renderDrtPanel() {
   const route = state.route;
   const c = drtCall;
 
+  // 탑승 이후(환승 포함) 자동으로 이어지는 여정은 별도 화면으로 그립니다.
+  if (state.journeyPhase !== 'idle') {
+    renderJourneyContinuation(body, route);
+    return;
+  }
+
+  // 지도 위 차량 위치 — 배정~접근 중에는 스팟 쪽으로 다가오는 것처럼 보여줍니다.
+  if (c.state === DRT_STATES.MATCHED) {
+    setJourneyVehicle(route.spot);
+  }
+  if (c.state === DRT_STATES.ARRIVING) {
+    if (journeyArrivingTotal == null) journeyArrivingTotal = c.etaMin;
+    const t = journeyArrivingTotal > 0 ? 1 - c.etaMin / journeyArrivingTotal : 1;
+    const approach = lerpLatLng(route.hub, route.spot, 1.2); // 스팟 너머에서 다가오는 것처럼
+    setJourneyVehicle(lerpLatLng(approach, route.spot, t));
+  }
+  if (c.state === DRT_STATES.ARRIVED) {
+    journeyArrivingTotal = null;
+    setJourneyVehicle(route.spot);
+  }
+
   // 호출 전
   if (c.state === DRT_STATES.IDLE) {
+    clearJourneyVehicle();
     body.innerHTML = '';
     body.appendChild(el(`
       <div>
@@ -736,14 +832,12 @@ function renderDrtPanel() {
     b.addEventListener('click', () => {
       c.board();
       if (state.mode === 'easy') speak('탑승 확인되었습니다. 편안히 가세요.');
+      startJourneyDrtRide(route); // 탑승 즉시 지도에서 이동 시작 → 환승까지 자동으로 이어집니다
     });
     row.appendChild(b);
   }
-  if (c.state === DRT_STATES.ONBOARD) {
-    const b = el(`<button class="btn btn-ghost">하차 완료</button>`);
-    b.addEventListener('click', () => c.finish());
-    row.appendChild(b);
-  }
+  // ONBOARD 상태는 startJourneyDrtRide()가 곧바로 journeyPhase로 넘겨받으므로
+  // 수동 "하차 완료" 버튼은 없습니다 — 탑승~하차~환승이 자동으로 이어집니다.
   if (c.isActive && c.state !== DRT_STATES.ONBOARD) {
     const b = el(`<button class="btn btn-danger">호출 취소</button>`);
     b.addEventListener('click', () => c.cancel());
@@ -763,6 +857,165 @@ function renderDrtPanel() {
   if (c.state === DRT_STATES.ARRIVED && state.mode === 'easy') {
     speak(`마실고래버스가 도착했습니다. ${c.spot.name}에서 타세요.`);
   }
+}
+
+/**
+ * 탑승 이후(스팟→환승거점 이동, 환승거점 대기, AI 지연설명, 버스 탑승,
+ * 버스→목적지 이동, 도착)를 그립니다. journeyPhase에 따라 내용만 바뀌고
+ * 지도는 그대로 유지됩니다 — 데모 탭의 여정 화면과 동일한 구조입니다.
+ */
+function renderJourneyContinuation(body, route) {
+  const phase = state.journeyPhase;
+  const { busRoute, busWaitMin, busRideMin } = getJourneyMetrics(route);
+
+  body.innerHTML = '';
+
+  if (phase === 'riding_drt') {
+    body.appendChild(el(`
+      <div>
+        <div class="drt-state"><span class="pulse"></span> <span>${esc(route.hub.name)}(으)로 이동 중</span></div>
+        <div class="eta" id="journey-drt-ride-eta">${state.journeyRideRemaining}<small>분 남음</small></div>
+      </div>`));
+    return;
+  }
+
+  if (phase === 'hub_arrived' || phase === 'bus_waiting') {
+    body.appendChild(el(`
+      <div>
+        <div class="drt-state"><span>✅</span> <span>${esc(route.hub.name)} 도착</span></div>
+        <p class="muted" style="margin:8px 0">여기서 <b>${esc(busRoute)}번 버스</b>로 환승합니다.</p>
+        <div class="notice notice-ai" id="journey-delay-body" style="margin-top:6px">
+          <span class="notice-icon"><span class="spinner spinner-dark"></span></span>
+          <div>지연 상황을 분석하고 있습니다...</div>
+        </div>
+        <div class="eta" id="journey-bus-wait-eta" style="margin-top:14px">${state.journeyBusWaitRemaining ?? busWaitMin}<small>분 뒤 버스 도착</small></div>
+      </div>`));
+
+    if (phase === 'hub_arrived') {
+      state.journeyPhase = 'bus_waiting';
+      state.journeyBusWaitRemaining = busWaitMin;
+      explainDelay(route).then(({ text, mode }) => {
+        const dBody = $('journey-delay-body');
+        if (!dBody) return;
+        dBody.innerHTML = '';
+        dBody.appendChild(el(`
+          <div class="notice ${route.delay.isDelayed ? 'notice-warn' : 'notice-ok'}">
+            <span class="notice-icon">${route.delay.isDelayed ? '⏱️' : '✅'}</span>
+            <div>${esc(text)}</div>
+          </div>`));
+        if (mode === 'fallback') {
+          dBody.appendChild(el(`
+            <div class="notice notice-info" style="margin-top:8px">
+              <span class="notice-icon">ℹ️</span>
+              <div>지금은 오프라인 안내로 표시하고 있습니다.</div>
+            </div>`));
+        }
+      });
+      startJourneyBusWait(route, busWaitMin);
+    }
+    return;
+  }
+
+  if (phase === 'bus_arrived') {
+    body.appendChild(el(`
+      <div>
+        <div class="drt-state"><span>🚌</span> <span>${esc(busRoute)}번 버스가 도착했습니다</span></div>
+        <p class="muted" style="margin:8px 0">${esc(route.hub.name)}에서 탑승해주세요.</p>
+        <button class="btn btn-teal" id="journey-bus-board-btn">탑승했습니다</button>
+      </div>`));
+    if (state.mode === 'easy') speak(`${busRoute}번 버스가 도착했습니다. 탑승해주세요.`);
+    $('journey-bus-board-btn').addEventListener('click', () => {
+      if (state.mode === 'easy') speak('탑승 확인되었습니다.');
+      startJourneyBusRide(route, busRideMin);
+    });
+    return;
+  }
+
+  if (phase === 'riding_bus') {
+    body.appendChild(el(`
+      <div>
+        <div class="drt-state"><span class="pulse"></span> <span>${esc(route.destination.name)}(으)로 이동 중</span></div>
+        <div class="eta" id="journey-bus-ride-eta">${state.journeyRideRemaining}<small>분 남음</small></div>
+      </div>`));
+    return;
+  }
+
+  if (phase === 'done') {
+    body.appendChild(el(`
+      <div class="notice notice-ok" style="align-items:flex-start">
+        <span class="notice-icon" style="font-size:1.4em">🎉</span>
+        <div>
+          <b>${esc(route.destination.name)} 도착!</b><br>
+          총 이동시간 약 ${route.totalMin}분, 마실고래버스와 시내버스를 이음으로 한 번에 이었습니다.
+          <div class="btn-row" style="margin-top:10px">
+            <button class="btn btn-ghost btn-sm" id="journey-restart-btn">다시 호출하기</button>
+          </div>
+        </div>
+      </div>`));
+    if (state.mode === 'easy') speak(`${route.destination.name}에 도착했습니다. 오늘도 이음과 함께해주셔서 감사합니다.`);
+    $('journey-restart-btn').addEventListener('click', () => resetJourney());
+    return;
+  }
+}
+
+function startJourneyDrtRide(route) {
+  const { drtRideMin } = getJourneyMetrics(route);
+  state.journeyPhase = 'riding_drt';
+  state.journeyRideRemaining = drtRideMin;
+  setJourneyVehicle(route.spot);
+  renderDrtPanel();
+
+  journeyCancelTicker = startDemoCountdown(drtRideMin, {
+    onTick: (remaining, total) => {
+      state.journeyRideRemaining = remaining;
+      const t = total > 0 ? 1 - remaining / total : 1;
+      setJourneyVehicle(lerpLatLng(route.spot, route.hub, t));
+      const etaEl = document.getElementById('journey-drt-ride-eta');
+      if (etaEl) etaEl.innerHTML = `${remaining}<small>분 남음</small>`;
+    },
+    onDone: () => {
+      drtCall.finish();
+      clearJourneyVehicle();
+      state.journeyPhase = 'hub_arrived';
+      renderDrtPanel();
+    },
+  });
+}
+
+function startJourneyBusWait(route, busWaitMin) {
+  journeyCancelTicker = startDemoCountdown(busWaitMin, {
+    onTick: (remaining) => {
+      state.journeyBusWaitRemaining = remaining;
+      const etaEl = document.getElementById('journey-bus-wait-eta');
+      if (etaEl && state.journeyPhase === 'bus_waiting') etaEl.innerHTML = `${remaining}<small>분 뒤 버스 도착</small>`;
+    },
+    onDone: () => {
+      state.journeyPhase = 'bus_arrived';
+      renderDrtPanel();
+    },
+  });
+}
+
+function startJourneyBusRide(route, busRideMin) {
+  state.journeyPhase = 'riding_bus';
+  state.journeyRideRemaining = busRideMin;
+  setJourneyVehicle(route.hub);
+  renderDrtPanel();
+
+  journeyCancelTicker = startDemoCountdown(busRideMin, {
+    onTick: (remaining, total) => {
+      state.journeyRideRemaining = remaining;
+      const t = total > 0 ? 1 - remaining / total : 1;
+      setJourneyVehicle(lerpLatLng(route.hub, route.destination, t));
+      const etaEl = document.getElementById('journey-bus-ride-eta');
+      if (etaEl) etaEl.innerHTML = `${remaining}<small>분 남음</small>`;
+    },
+    onDone: () => {
+      clearJourneyVehicle();
+      state.journeyPhase = 'done';
+      renderDrtPanel();
+    },
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -841,6 +1094,7 @@ async function sendMessage(text) {
   speak(result.reply);
 
   if (result.ready && result.destination) {
+    resetJourney(); // 새로 찾는 경로에 이전 호출·여정 상태가 남아있지 않도록
     state.destination = result.destination;
     state.chosenSpot = near;
     state.route = buildRoute(state.position, result.destination, near);
@@ -858,6 +1112,15 @@ async function sendMessage(text) {
 function renderEasyRoute(route) {
   const box = $('easy-result');
   box.innerHTML = '';
+
+  // 일반모드와 같은 지도를 씁니다 — 호출 후 실시간 이동도 이 지도 위에 표시됩니다.
+  box.appendChild(el(`
+    <div class="card">
+      <h2 class="card-title"><span>🗺️ 지도로 보기</span></h2>
+      <div class="map-box" id="easy-route-map"></div>
+      <div class="map-note">직선 경로로 표시했습니다 (실제 도로 경로 아님) · 지도: 카카오맵</div>
+    </div>`));
+  setTimeout(() => renderRouteMap(route, 'easy-route-map'), 0);
 
   const card = el(`
     <div class="card">
@@ -927,7 +1190,7 @@ function resetChat() {
   state.chatHistory = [];
   state.route = null;
   state.destination = null;
-  drtCall.cancel();
+  resetJourney();
   $('chat').innerHTML = '';
   $('easy-result').innerHTML = '';
   stopSpeaking();

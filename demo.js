@@ -337,21 +337,31 @@ async function initDemoMap(route) {
   const bounds = new kakao.maps.LatLngBounds();
   demoPinOverlays = [];
 
-  // 라벨을 핀 '위'에 두고 핀(원형 아이콘)을 맨 아래에 둡니다.
-  // yAnchor:1은 콘텐츠 박스의 '맨 아래'를 좌표에 맞추므로, 이렇게 순서를
-  // 맞춰야 핀의 실제 중심이 좌표·경로선과 어긋나지 않습니다.
+  // CustomOverlay(DOM+CSS) 대신 카카오맵 네이티브 Marker + MarkerImage(SVG,
+  // 중심점 offset)를 씁니다. 원의 중심이 곧 앵커라 좌표·경로선과 어긋날 여지가 없습니다.
   [
-    { p: route.spot, cls: 'spot', icon: '🐋' },
-    { p: route.hub, cls: 'hub', icon: '🔄' },
-    { p: route.destination, cls: 'dest', icon: '🎯' },
-  ].forEach(({ p, cls, icon }) => {
+    { p: route.spot, cls: 'spot', icon: '🐋', color: '#7b2ff7' },
+    { p: route.hub, cls: 'hub', icon: '🔄', color: '#5b2c82' },
+    { p: route.destination, cls: 'dest', icon: '🎯', color: '#d6249f' },
+  ].forEach(({ p, icon, color }) => {
     const pos = new kakao.maps.LatLng(p.lat, p.lng);
     bounds.extend(pos);
-    // 이름표 없이 동선 위에 고정된 아이콘 핀만 찍습니다 (일반모드 지도와 동일한 방식).
-    const content = el(`<div class="demo-pin ${cls}"><span>${icon}</span></div>`);
-    const overlay = new kakao.maps.CustomOverlay({ position: pos, content, yAnchor: 1, zIndex: 2 });
-    overlay.setMap(demoMap);
-    demoPinOverlays.push(overlay);
+
+    const size = 28;
+    const half = size / 2;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">`
+      + `<circle cx="${half}" cy="${half}" r="${half - 2}" fill="${color}" stroke="#fff" stroke-width="2.5"/>`
+      + `<text x="${half}" y="${half + 5}" font-size="14" text-anchor="middle">${icon}</text>`
+      + `</svg>`;
+    const image = new kakao.maps.MarkerImage(
+      'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg),
+      new kakao.maps.Size(size, size),
+      { offset: new kakao.maps.Point(half, half) },
+    );
+
+    const marker = new kakao.maps.Marker({ position: pos, image, zIndex: 2 });
+    marker.setMap(demoMap);
+    demoPinOverlays.push(marker);
   });
 
   // 구간별로 선을 나눠 그립니다 — DRT 구간(보라)과 버스 구간(초록)을 색으로 구분합니다.
@@ -368,7 +378,7 @@ async function initDemoMap(route) {
   // (즉시+80ms 뒤 이중 보정이 사용자의 확대·축소를 덮어쓰는 문제가 있었습니다)
   requestAnimationFrame(() => {
     demoMap.relayout();
-    demoMap.setBounds(bounds, 40, 40, 40, 40);
+    demoMap.setBounds(bounds, 64, 64, 64, 64);
   });
 }
 
@@ -377,8 +387,13 @@ function setDemoVehicle(pos) {
   if (!demoMap) return;
   const latlng = new kakao.maps.LatLng(pos.lat, pos.lng);
   if (!demoVehicleOverlay) {
-    const content = el(`<div class="demo-vehicle"><img src="${MASCOT_SRC}" alt="이음이"></div>`);
-    demoVehicleOverlay = new kakao.maps.CustomOverlay({ position: latlng, content, yAnchor: .5, zIndex: 5 });
+    const size = 40;
+    const image = new kakao.maps.MarkerImage(
+      MASCOT_SRC,
+      new kakao.maps.Size(size, size),
+      { offset: new kakao.maps.Point(size / 2, size / 2) },
+    );
+    demoVehicleOverlay = new kakao.maps.Marker({ position: latlng, image, zIndex: 5 });
     demoVehicleOverlay.setMap(demoMap);
   } else {
     demoVehicleOverlay.setPosition(latlng);
