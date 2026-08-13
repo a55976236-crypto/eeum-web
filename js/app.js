@@ -99,6 +99,7 @@ async function init() {
 function bindEvents() {
   $('tab-normal').addEventListener('click', () => switchMode('normal'));
   $('tab-easy').addEventListener('click', () => switchMode('easy'));
+  $('tab-demo').addEventListener('click', () => switchMode('demo'));
 
   $('btn-locate').addEventListener('click', handleLocate);
   $('sel-manual').addEventListener('change', handleManualPick);
@@ -118,17 +119,19 @@ function bindEvents() {
   document.addEventListener('click', primeTts, { once: true });
 }
 
+const MODE_TABS = { normal: 'tab-normal', easy: 'tab-easy', demo: 'tab-demo' };
+const MODE_SCREENS = { normal: 'screen-normal', easy: 'screen-easy', demo: 'screen-demo' };
+
 function switchMode(mode) {
   state.mode = mode;
-  const isEasy = mode === 'easy';
 
-  $('tab-normal').setAttribute('aria-selected', String(!isEasy));
-  $('tab-easy').setAttribute('aria-selected', String(isEasy));
-  $('screen-normal').classList.toggle('active', !isEasy);
-  $('screen-easy').classList.toggle('active', isEasy);
-  $('app').classList.toggle('easy', isEasy);
+  Object.keys(MODE_TABS).forEach((m) => {
+    $(MODE_TABS[m]).setAttribute('aria-selected', String(m === mode));
+    $(MODE_SCREENS[m]).classList.toggle('active', m === mode);
+  });
+  $('app').classList.toggle('easy', mode === 'easy');
 
-  if (!isEasy) stopSpeaking();
+  if (mode !== 'easy') stopSpeaking();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

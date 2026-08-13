@@ -36,6 +36,9 @@
     <button class="tab" id="tab-easy" role="tab" aria-selected="false" aria-controls="screen-easy">
       🗣️ 쉬운모드
     </button>
+    <button class="tab" id="tab-demo" role="tab" aria-selected="false" aria-controls="screen-demo">
+      🎬 데모
+    </button>
   </div>
 
   <!-- ══ 일반모드 ══════════════════════════════════ -->
@@ -112,6 +115,11 @@
     </div>
   </main>
 
+  <!-- ══ 데모 시나리오 (성암파출소 → 다운교 환승 → 구영운동장) ══ -->
+  <main class="screen" id="screen-demo" role="tabpanel" aria-labelledby="tab-demo">
+    <div id="demo-root"></div>
+  </main>
+
   <!-- ══ 푸터 ══════════════════════════════════════ -->
   <footer class="footer">
     <div class="legend">
@@ -133,7 +141,7 @@
 -->
 <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=871b187aa14ea8cb5629b0c1afa82120&autoload=false"></script>
 
-<!-- 순서 중요: kakao maps → config → data → geo → route → drt → ai → voice → app -->
+<!-- 순서 중요: kakao maps → config → data → geo → route → drt → ai → voice → app → demo -->
 <script src="js/config.js"></script>
 <script src="js/data.js"></script>
 <script src="js/geo.js"></script>
@@ -142,5 +150,6 @@
 <script src="js/ai.js"></script>
 <script src="js/voice.js"></script>
 <script src="js/app.js"></script>
+<script src="js/demo.js"></script>
 </body>
 </html>
