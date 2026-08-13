@@ -11,6 +11,12 @@
  *   (실 좌표는 추정값입니다 — data.js의 다른 스팟들과 동일한 수준의 근사치)
  */
 
+/** 마스코트 이미지 경로 — 프로젝트 루트 기준 img/mascot.png 에 파일을 넣어주세요. */
+const MASCOT_SRC = 'img/mascot.png';
+
+/** 구간 종류별 경로선 색상 — css/style.css의 --demo-drt/--demo-bus/--demo-walk와 맞춰뒀습니다. */
+const DEMO_LEG_COLORS = { drt: '#7b2ff7', bus: '#17a673', walk: '#ff4d5e' };
+
 const DEMO_SCENARIO = {
   spot: { id: 'DEMO-SPOT', name: '성암파출소', area: '남구 성암동', lat: 35.5238, lng: 129.3418 },
   hub: { id: 'DEMO-HUB', name: '다운교', lat: 35.5392, lng: 129.3125, routes: ['126'] },
@@ -220,7 +226,7 @@ function renderDemoLocate(stage) {
 function renderDemoChat(stage) {
   stage.appendChild(el(`
     <div class="demo-hero demo-hero-sm">
-      <div class="demo-hero-emoji">🗣️</div>
+      <div class="demo-hero-emoji"><img src="${MASCOT_SRC}" alt="이음이"></div>
       <div class="demo-hero-title">쉬운모드로 말해보세요</div>
       <div class="demo-hero-sub">AI 대화형 인터페이스</div>
     </div>`));
@@ -240,10 +246,11 @@ function renderDemoChat(stage) {
     </div>`));
 
   const log = document.getElementById('demo-chat');
+  const botAvatar = `<img src="${MASCOT_SRC}" alt="이음이">`;
   const addBubble = (role, text) => {
     log.appendChild(el(`
       <div class="demo-msg demo-msg-${role === 'user' ? 'user' : 'bot'}">
-        <div class="demo-msg-avatar">${role === 'user' ? '👤' : '🐋'}</div>
+        <div class="demo-msg-avatar">${role === 'user' ? '👤' : botAvatar}</div>
         <div class="demo-bubble">${esc(text)}</div>
       </div>`));
     log.scrollTop = log.scrollHeight;
@@ -259,7 +266,7 @@ function renderDemoChat(stage) {
 
     const typing = el(`
       <div class="demo-msg demo-msg-bot">
-        <div class="demo-msg-avatar">🐋</div>
+        <div class="demo-msg-avatar">${botAvatar}</div>
         <div class="demo-bubble"><span class="demo-typing"><i></i><i></i><i></i></span></div>
       </div>`);
     log.appendChild(typing);
@@ -322,6 +329,9 @@ async function initDemoMap(route) {
   const bounds = new kakao.maps.LatLngBounds();
   demoPinOverlays = [];
 
+  // 라벨을 핀 '위'에 두고 핀(원형 아이콘)을 맨 아래에 둡니다.
+  // yAnchor:1은 콘텐츠 박스의 '맨 아래'를 좌표에 맞추므로, 이렇게 순서를
+  // 맞춰야 핀의 실제 중심이 좌표·경로선과 어긋나지 않습니다.
   [
     { p: route.spot, cls: 'spot', icon: '🐋' },
     { p: route.hub, cls: 'hub', icon: '🔄' },
@@ -330,29 +340,35 @@ async function initDemoMap(route) {
     const pos = new kakao.maps.LatLng(p.lat, p.lng);
     bounds.extend(pos);
     const content = el(`
-      <div class="route-pin-wrap">
-        <div class="route-pin ${cls}"><span>${icon}</span></div>
-        <div class="route-pin-label">${esc(p.name)}</div>
+      <div class="demo-pin-wrap">
+        <div class="demo-pin-label">${esc(p.name)}</div>
+        <div class="demo-pin ${cls}"><span>${icon}</span></div>
       </div>`);
     const overlay = new kakao.maps.CustomOverlay({ position: pos, content, yAnchor: 1, zIndex: 2 });
     overlay.setMap(demoMap);
     demoPinOverlays.push(overlay);
   });
 
+  // 구간별로 선을 나눠 그립니다 — DRT 구간(보라)과 버스 구간(초록)을 색으로 구분합니다.
   new kakao.maps.Polyline({
-    path: [route.spot, route.hub, route.destination].map((p) => new kakao.maps.LatLng(p.lat, p.lng)),
-    strokeWeight: 3, strokeColor: '#0e8f8f', strokeOpacity: .8, strokeStyle: 'shortdash',
+    path: [route.spot, route.hub].map((p) => new kakao.maps.LatLng(p.lat, p.lng)),
+    strokeWeight: 5, strokeColor: DEMO_LEG_COLORS.drt, strokeOpacity: .9, strokeStyle: 'solid',
+  }).setMap(demoMap);
+  new kakao.maps.Polyline({
+    path: [route.hub, route.destination].map((p) => new kakao.maps.LatLng(p.lat, p.lng)),
+    strokeWeight: 5, strokeColor: DEMO_LEG_COLORS.bus, strokeOpacity: .9, strokeStyle: 'solid',
   }).setMap(demoMap);
 
   demoMap.setBounds(bounds, 40, 40, 40, 40);
   setTimeout(() => { demoMap.relayout(); demoMap.setBounds(bounds, 40, 40, 40, 40); }, 80);
 }
 
-function setDemoVehicle(pos, emoji) {
+/** 지도 위를 이동하는 마커 — 사람 아이콘 대신 마스코트가 여정을 함께합니다. */
+function setDemoVehicle(pos) {
   if (!demoMap) return;
   const latlng = new kakao.maps.LatLng(pos.lat, pos.lng);
   if (!demoVehicleOverlay) {
-    const content = el(`<div class="demo-vehicle"><span>${emoji}</span></div>`);
+    const content = el(`<div class="demo-vehicle"><img src="${MASCOT_SRC}" alt="이음이"></div>`);
     demoVehicleOverlay = new kakao.maps.CustomOverlay({ position: latlng, content, yAnchor: .5, zIndex: 5 });
     demoVehicleOverlay.setMap(demoMap);
   } else {
@@ -508,12 +524,15 @@ function renderJourneyPanel(route) {
     return;
   }
 
-  // ── 최종 도착 ──
+  // ── 최종 도착 — 마스코트가 나와서 축하해줍니다 ──
   if (phase === 'done') {
     panel.appendChild(el(`
       <div>
-        <div class="demo-sheet-title">🎯 ${esc(route.destination.name)} 도착</div>
-        <p class="demo-sheet-desc">총 이동시간 약 ${route.totalMin}분, 직원에게 묻지 않고 혼자 완료했습니다.</p>
+        <div class="demo-celebrate">
+          <div class="demo-celebrate-mascot"><img src="${MASCOT_SRC}" alt="이음이"></div>
+          <div class="demo-celebrate-title">${esc(route.destination.name)} 도착!</div>
+          <div class="demo-celebrate-sub">총 이동시간 약 ${route.totalMin}분, 직원에게 묻지 않고 혼자 완료했습니다.</div>
+        </div>
         <button class="demo-btn" id="demo-arrived-next">여정 요약 보기</button>
       </div>`));
     document.getElementById('demo-arrived-next').addEventListener('click', () => goDemoStep(4));
@@ -532,22 +551,22 @@ function onDemoDrtChange(c) {
     if (!demoState._drtArrivingTotal) demoState._drtArrivingTotal = c.etaMin;
     const t = 1 - c.etaMin / demoState._drtArrivingTotal;
     const approach = lerpLatLng(route.hub, route.spot, 1.2); // 스팟 너머에서 다가오는 것처럼
-    setDemoVehicle(lerpLatLng(approach, route.spot, t), '🐋');
+    setDemoVehicle(lerpLatLng(approach, route.spot, t));
   }
   if (c.state === 'arrived') {
     demoState.journeyPhase = 'arrived_spot';
     demoState._drtArrivingTotal = null;
-    setDemoVehicle(route.spot, '🐋');
+    setDemoVehicle(route.spot);
   }
   renderJourneyPanel(route);
 }
 
 function startDrtRide(route) {
-  setDemoVehicle(route.spot, '🐋');
+  setDemoVehicle(route.spot);
   demoState.cancelTicker = startDemoCountdown(route.drtRideMin, {
     onTick: (remaining, total) => {
       const t = total > 0 ? 1 - remaining / total : 1;
-      setDemoVehicle(lerpLatLng(route.spot, route.hub, t), '🐋');
+      setDemoVehicle(lerpLatLng(route.spot, route.hub, t));
       const eta = document.getElementById('demo-drt-ride-eta');
       if (eta) eta.innerHTML = `${remaining}<small>분 남음</small>`;
     },
@@ -576,11 +595,11 @@ function startBusWait(route) {
 }
 
 function startBusRide(route) {
-  setDemoVehicle(route.hub, '🚌');
+  setDemoVehicle(route.hub);
   demoState.cancelTicker = startDemoCountdown(route.busRideMin, {
     onTick: (remaining, total) => {
       const t = total > 0 ? 1 - remaining / total : 1;
-      setDemoVehicle(lerpLatLng(route.hub, route.destination, t), '🚌');
+      setDemoVehicle(lerpLatLng(route.hub, route.destination, t));
       const eta = document.getElementById('demo-bus-ride-eta');
       if (eta) eta.innerHTML = `${remaining}<small>분 남음</small>`;
     },
@@ -600,7 +619,7 @@ function renderDemoSummary(stage) {
   const route = demoState.route;
   stage.appendChild(el(`
     <div class="demo-hero demo-hero-sm">
-      <div class="demo-hero-emoji">✅</div>
+      <div class="demo-hero-emoji"><img src="${MASCOT_SRC}" alt="이음이"></div>
       <div class="demo-hero-title">여정 완료</div>
     </div>`));
   stage.appendChild(el(`

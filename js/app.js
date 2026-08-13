@@ -421,8 +421,8 @@ async function renderRouteMap(route, containerId) {
 
     const content = el(`
       <div class="route-pin-wrap">
-        <div class="route-pin ${p.cls}"><span>${p.icon}</span></div>
         <div class="route-pin-label">${p.label}</div>
+        <div class="route-pin ${p.cls}"><span>${p.icon}</span></div>
       </div>`);
 
     new kakao.maps.CustomOverlay({
