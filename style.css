@@ -659,41 +659,36 @@ body { padding-bottom: env(safe-area-inset-bottom); }
   margin-top: 8px;
 }
 
-/*
- * 지도 핀 — 회전(rotate) 트릭을 쓰지 않습니다.
- * CustomOverlay의 yAnchor:1은 콘텐츠의 '레이아웃 박스 그대로의 아래쪽 끝'을
- * 좌표에 맞추는데, 회전된 요소는 화면에 보이는 뾰족한 끝과 레이아웃 박스의
- * 아래쪽 끝이 어긋나서(회전은 시각적 표현만 바꿀 뿐 박스 크기는 그대로라)
- * 핀과 경로선이 안 맞아 보이는 원인이었습니다.
- * 대신 원(circle) + 그 아래 실제로 레이아웃을 차지하는 삼각형(tail)을
- * 세로로 쌓아서, 그 조합의 맨 아래 뾰족한 지점이 곧 좌표가 되도록 만듭니다.
- */
-.route-pin {
-  display: flex; flex-direction: column; align-items: center;
+.route-pin-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transform: translateY(2%);
 }
-.route-pin-circle {
-  width: 26px; height: 26px; border-radius: 50%;
+.route-pin {
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px;
+  width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
   box-shadow: var(--shadow);
   border: 2px solid #fff;
 }
-.route-pin-tail {
-  width: 0; height: 0;
-  margin-top: -3px;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top-width: 8px;
-  border-top-style: solid;
+.route-pin span { transform: rotate(45deg); font-size: 15px; }
+.route-pin.origin { background: var(--navy); }
+.route-pin.spot,
+.route-pin.hub    { background: var(--teal); }
+.route-pin.dest   { background: var(--danger); }
+
+.route-pin-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  background: #fff;
+  padding: 2px 8px;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  white-space: nowrap;
 }
-.route-pin.origin .route-pin-circle { background: var(--navy); }
-.route-pin.origin .route-pin-tail   { border-top-color: var(--navy); }
-.route-pin.spot .route-pin-circle,
-.route-pin.hub .route-pin-circle    { background: var(--teal); }
-.route-pin.spot .route-pin-tail,
-.route-pin.hub .route-pin-tail      { border-top-color: var(--teal); }
-.route-pin.dest .route-pin-circle   { background: var(--danger); }
-.route-pin.dest .route-pin-tail     { border-top-color: var(--danger); }
 
 /* ═══════════════════════════════════════════════════════════
    데모 시나리오 — 울산마실 실제 앱 톤의 스텝 위저드
@@ -981,79 +976,82 @@ body { padding-bottom: env(safe-area-inset-bottom); }
 .demo-celebrate-title { font-size: 1.3em; font-weight: 900; margin-top: 4px; }
 .demo-celebrate-sub { font-size: .86em; color: var(--demo-sub); margin-top: 4px; }
 
-/* ═══════════════════════════════════════════════════════════
-   시작 화면 (모드 선택) + 단계 전환 내비게이션
-   ═══════════════════════════════════════════════════════════ */
 
-.landing {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 28px;
-  padding: 40px 20px calc(env(safe-area-inset-bottom) + 24px);
-  background: linear-gradient(160deg, var(--navy) 0%, var(--navy-2) 55%, var(--teal) 160%);
-  color: #fff;
+/* ── 심사 대응 강화: 기술 투명성 + AI 브리핑 ───────────── */
+.tech-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 12px;
+}
+.tech-strip span {
+  display: block;
+  padding: 8px 7px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink-2);
+  font-size: .68em;
+  line-height: 1.35;
   text-align: center;
 }
-.landing[hidden] { display: none; }
+.tech-strip b { display: block; color: var(--navy); margin-bottom: 2px; }
 
-.landing-hero { display: flex; flex-direction: column; align-items: center; }
-.landing-logo {
-  font-size: 2.2em; font-weight: 900; letter-spacing: -.02em; line-height: 1.15;
+.ai-brief {
+  border: 1px solid #e6d5fb;
+  background: #fbf8ff;
+  border-radius: 12px;
+  padding: 13px 14px;
 }
-.landing-logo small { font-size: .32em; font-weight: 600; letter-spacing: .3em; opacity: .75; }
-.landing-tagline { margin-top: 10px; font-size: .95em; opacity: .88; }
+.ai-brief-head { font-weight: 800; color: #4c1d95; margin-bottom: 7px; }
+.ai-brief-actions { margin: 0; padding-left: 1.4em; }
+.ai-brief-actions li { margin: 4px 0; }
+.ai-brief-caution { margin-top: 9px; font-size: .82em; color: #6d28d9; }
 
-.landing-choices {
-  display: flex; flex-direction: column; gap: 14px;
-  width: 100%; max-width: 360px;
+/* 쉬운모드: 환승 정보를 생략하지 않고 4개의 큰 행동으로 압축 */
+.easy-ai-understanding {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e6d5fb;
+  border-radius: 12px;
+  background: #fbf8ff;
+  color: #4c1d95;
+  font-size: .82em;
 }
-.landing-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  background: #fff; color: var(--ink);
-  border: none; border-radius: 18px;
-  padding: 22px 20px;
-  font-size: 1.4em;
-  box-shadow: var(--shadow-lg);
-  cursor: pointer;
+.easy-ai-flow { margin-top: 5px; color: var(--ink-2); font-size: .86em; }
+.easy-steps { margin-top: 12px; display: flex; flex-direction: column; gap: 9px; }
+.easy-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 13px;
+  background: #fff;
 }
-.landing-btn-title { font-size: .58em; font-weight: 800; }
-.landing-btn small { font-size: .34em; font-weight: 600; color: var(--ink-2); }
-.landing-btn:active { transform: scale(.98); }
+.easy-step-no {
+  width: 38px; height: 38px; flex: 0 0 38px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--navy); color: #fff;
+  font-weight: 900;
+}
+.easy-step-body { flex: 1; min-width: 0; }
+.easy-step-title { font-weight: 850; line-height: 1.4; }
+.easy-step-detail { margin-top: 4px; color: var(--ink-2); font-size: .78em; line-height: 1.5; }
+.easy-source-note {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--sky);
+  color: var(--ink-2);
+  font-size: .7em;
+}
+.easy .easy-step { padding: 16px; }
+.easy .easy-step-no { width: 46px; height: 46px; flex-basis: 46px; }
+.easy .easy-step-title { font-size: .96em; }
 
-.landing-demo-link {
-  background: transparent; border: none; color: #fff; opacity: .8;
-  font-size: .84em; font-weight: 600; text-decoration: underline;
-  cursor: pointer; padding: 8px;
-}
-
-.home-link {
-  margin-left: auto;
-  background: rgba(255,255,255,.14); border: none; color: #fff;
-  font-size: .74em; font-weight: 700;
-  padding: 6px 10px; border-radius: 999px;
-  cursor: pointer; white-space: nowrap;
-}
-
-/* 스텝 내비게이션(뒤로가기 + 진행 dot) — 일반모드·쉬운모드 공용 */
-.step-nav {
-  display: flex; align-items: center; gap: 10px;
-  padding: 14px 0 4px;
-}
-.step-back-btn {
-  background: #fff; border: 1px solid var(--line); color: var(--ink);
-  border-radius: 999px; padding: 8px 14px;
-  font-size: .82em; font-weight: 700; cursor: pointer;
-  box-shadow: var(--shadow);
-}
-.step-back-btn[hidden] { display: none; }
-.step-dots { display: flex; gap: 6px; margin-left: auto; }
-.step-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--line); }
-.step-dot.on { background: var(--teal); width: 18px; border-radius: 4px; }
-
-.step-panel[hidden] { display: none; }
-.step-panel {
-  animation: fade .22s ease;
+@media (max-width: 390px) {
+  .tech-strip { grid-template-columns: 1fr; }
+  .tech-strip span { text-align: left; }
 }
