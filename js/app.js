@@ -101,6 +101,14 @@ function bindEvents() {
   $('tab-easy').addEventListener('click', () => switchMode('easy'));
   $('tab-demo').addEventListener('click', () => switchMode('demo'));
 
+  $('landing-normal').addEventListener('click', () => enterApp('normal'));
+  $('landing-easy').addEventListener('click', () => enterApp('easy'));
+  $('landing-demo').addEventListener('click', () => enterApp('demo'));
+  $('btn-home').addEventListener('click', showLanding);
+
+  $('normal-back-btn').addEventListener('click', () => goNormalStep(0));
+  $('easy-back-btn').addEventListener('click', () => goEasyStep(0));
+
   $('btn-locate').addEventListener('click', handleLocate);
   $('sel-manual').addEventListener('change', handleManualPick);
   $('sel-dest').addEventListener('change', handleDestPick);
@@ -117,6 +125,56 @@ function bindEvents() {
   // iOS 음성 재생 잠금 해제 — 첫 터치 때 한 번만
   document.addEventListener('touchstart', primeTts, { once: true });
   document.addEventListener('click', primeTts, { once: true });
+}
+
+// ─────────────────────────────────────────────────────────────
+// 시작 화면 (모드 선택)
+// ─────────────────────────────────────────────────────────────
+
+function showLanding() {
+  $('screen-landing').hidden = false;
+  $('app-header').hidden = true;
+  $('app-tabs').hidden = true;
+  $('app').classList.remove('easy');
+  Object.values(MODE_SCREENS).forEach((id) => $(id).classList.remove('active'));
+  stopSpeaking();
+}
+
+function enterApp(mode) {
+  $('screen-landing').hidden = true;
+  $('app-header').hidden = false;
+  $('app-tabs').hidden = false;
+  switchMode(mode);
+
+  // 데모 탭은 원래 tab-demo 클릭에만 지연 빌드가 걸려있어서,
+  // 시작 화면의 "데모 보기" 링크로 바로 들어올 때도 빌드되도록 맞춰줍니다.
+  if (mode === 'demo' && typeof demoState !== 'undefined' && !demoState.built) {
+    buildDemoScreen();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 일반모드·쉬운모드 — 스텝 전환(스크롤 대신 화면 전환)
+// ─────────────────────────────────────────────────────────────
+
+let normalStep = 0;
+function goNormalStep(i) {
+  normalStep = i;
+  $('normal-step-0').hidden = i !== 0;
+  $('normal-step-1').hidden = i !== 1;
+  document.querySelectorAll('#normal-step-nav .step-dot').forEach((d, idx) => d.classList.toggle('on', idx === i));
+  $('normal-back-btn').hidden = i === 0;
+  $('screen-normal').scrollTop = 0;
+}
+
+let easyStep = 0;
+function goEasyStep(i) {
+  easyStep = i;
+  $('easy-step-0').hidden = i !== 0;
+  $('easy-step-1').hidden = i !== 1;
+  document.querySelectorAll('#easy-step-nav .step-dot').forEach((d, idx) => d.classList.toggle('on', idx === i));
+  $('easy-back-btn').hidden = i === 0;
+  $('screen-easy').scrollTop = 0;
 }
 
 const MODE_TABS = { normal: 'tab-normal', easy: 'tab-easy', demo: 'tab-demo' };
@@ -247,14 +305,11 @@ async function handleFindRoute() {
 
   state.route = buildRoute(state.position, state.destination, state.chosenSpot);
   renderRoute(state.route);
+  goNormalStep(1); // 스크롤 대신 결과 화면으로 전환
 
   // AI 지연 설명은 화면을 먼저 그린 뒤 비동기로 채웁니다.
   // (AI가 느려도 경로는 즉시 보이도록)
   fillDelayExplanation(state.route);
-
-  setTimeout(() => {
-    $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 60);
 }
 
 function renderRoute(route) {
@@ -368,16 +423,31 @@ async function fillDelayExplanation(route) {
 const mapInstances = {};
 let kakaoMapsReady = null;
 
+/**
+ * 성공한 결과만 캐싱합니다. 실패를 캐싱하면 처음 한 번 타이밍이 꼬여
+ * 로딩에 실패했을 때 이후 모든 지도(일반모드·데모 공용)가 재시도 없이
+ * 영원히 "불러오지 못했습니다"로 고정되는 문제가 있었습니다.
+ */
 function waitForKakaoMaps() {
   if (kakaoMapsReady) return kakaoMapsReady;
-  kakaoMapsReady = new Promise((resolve, reject) => {
+
+  const attempt = new Promise((resolve, reject) => {
     if (typeof kakao === 'undefined' || !kakao.maps) {
       reject(new Error('kakao maps SDK 로딩 실패'));
       return;
     }
-    kakao.maps.load(resolve);
+    try {
+      kakao.maps.load(resolve);
+    } catch (err) {
+      reject(err);
+    }
   });
-  return kakaoMapsReady;
+
+  kakaoMapsReady = attempt;
+  attempt.catch(() => {
+    if (kakaoMapsReady === attempt) kakaoMapsReady = null; // 다음 호출이 다시 시도할 수 있게
+  });
+  return attempt;
 }
 
 async function renderRouteMap(route, containerId) {
@@ -390,7 +460,15 @@ async function renderRouteMap(route, containerId) {
   try {
     await waitForKakaoMaps();
   } catch (_) {
-    box.innerHTML = '<div class="map-fallback">지도를 불러오지 못했습니다.<br>네트워크 연결을 확인해주세요.</div>';
+    box.innerHTML = '';
+    box.appendChild(el(`
+      <div class="map-fallback">
+        <div>
+          지도를 불러오지 못했습니다.<br>네트워크 연결을 확인해주세요.<br>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px" id="map-retry-${containerId}">다시 시도</button>
+        </div>
+      </div>`));
+    document.getElementById(`map-retry-${containerId}`)?.addEventListener('click', () => renderRouteMap(route, containerId));
     return;
   }
 
@@ -720,6 +798,7 @@ async function sendMessage(text) {
     state.chosenSpot = near;
     state.route = buildRoute(state.position, result.destination, near);
     renderEasyRoute(state.route);
+    goEasyStep(1); // 스크롤 대신 결과 화면으로 전환
   } else {
     renderQuickButtons();
   }
@@ -775,7 +854,6 @@ function renderEasyRoute(route) {
   card.querySelector('#easy-drt').appendChild(callBtn);
 
   box.appendChild(card);
-  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   const spoken = `${route.destination.name}까지 약 ${route.totalMin}분 걸립니다. ` +
                  `${route.spot.name}까지 걸어가신 뒤 마실고래버스를 타세요.`;
@@ -807,6 +885,7 @@ function resetChat() {
   $('easy-result').innerHTML = '';
   stopSpeaking();
   greetEasyMode();
+  goEasyStep(0);
 }
 
 function toggleTts() {
