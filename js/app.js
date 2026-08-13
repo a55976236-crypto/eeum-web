@@ -478,15 +478,20 @@ async function renderRouteMap(route, containerId) {
 
   box.innerHTML = '';
 
-  const points = [
-    { lat: route.origin.lat, lng: route.origin.lng, cls: 'origin', icon: '🧍', label: '현재 위치' },
+  // 마을을 직접 고른 경우 등 이미 스팟 위에 서 있으면(route.js와 동일한 150m 기준)
+  // '현재 위치' 핀과 스팟 핀이 같은 좌표에 겹쳐 찍히므로 이때는 스팟 핀 하나만 보여줍니다.
+  const points = [];
+  if (route.spot.distance >= 150) {
+    points.push({ lat: route.origin.lat, lng: route.origin.lng, cls: 'origin', icon: '🧍', label: '현재 위치' });
+  }
+  points.push(
     { lat: route.spot.lat, lng: route.spot.lng, cls: 'spot', icon: '🐋', label: esc(route.spot.name) },
     { lat: route.hub.lat, lng: route.hub.lng, cls: 'hub', icon: '🔄', label: esc(route.hub.name) },
     { lat: route.destination.lat, lng: route.destination.lng, cls: 'dest', icon: '🎯', label: esc(route.destination.name) },
-  ];
+  );
 
   const map = new kakao.maps.Map(box, {
-    center: new kakao.maps.LatLng(points[1].lat, points[1].lng),
+    center: new kakao.maps.LatLng(route.spot.lat, route.spot.lng),
     level: 7,
   });
   mapInstances[containerId] = map;
